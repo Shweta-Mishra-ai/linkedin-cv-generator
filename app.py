@@ -9,7 +9,7 @@ import base64
 st.set_page_config(page_title="Pro AI CV Generator", page_icon="📄", layout="wide")
 
 # ==========================================
-# 1. CLEAN UI (Humesha Dikhega)
+# 1. CLEAN UI
 # ==========================================
 st.title("📄 AI LinkedIn to CV Generator")
 st.markdown("Simply upload a LinkedIn PDF or paste a URL to generate a perfectly designed CV.")
@@ -61,19 +61,20 @@ def generate_html_cv(name, headline, contact_info, skills, main_content):
     return html
 
 # ==========================================
-# 3. AI EXTRACTION ENGINE
+# 3. AI EXTRACTION ENGINE (FIXED MODEL NAME)
 # ==========================================
 def process_with_ai(raw_text):
-    # DIRECTLY fetching from secrets. If this fails, the app will show a clear error.
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
     except Exception:
-        st.error("🚨 Configuration Error: The app couldn't find 'GEMINI_API_KEY' in Streamlit Secrets. Please check the exact spelling in your Streamlit dashboard.")
+        st.error("🚨 Configuration Error: Key missing in Streamlit Secrets.")
         st.stop()
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # 🟢 THE FIX IS HERE: Changed from 'gemini-1.5-flash' to 'gemini-pro'
+        model = genai.GenerativeModel('gemini-pro')
+        
         prompt = f"""
         Act as an expert HR. Extract data from this profile text into STRICT JSON. 
         Return ONLY raw JSON, no markdown. 
@@ -90,8 +91,6 @@ def process_with_ai(raw_text):
 # ==========================================
 # 4. APP LOGIC
 # ==========================================
-
-# --- METHOD 1: PDF UPLOAD ---
 if input_method == "📄 Upload LinkedIn PDF":
     uploaded_file = st.file_uploader("Upload Profile PDF", type=['pdf'])
     
@@ -114,9 +113,8 @@ if input_method == "📄 Upload LinkedIn PDF":
                     b64 = base64.b64encode(final_html.encode()).decode()
                     href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download Your CV</a>'
                     st.markdown(href, unsafe_allow_html=True)
-                    st.caption("Tip: Open the downloaded file in your browser and press Ctrl+P (or Cmd+P) to save it as a PDF.")
+                    st.caption("Tip: Open the downloaded file in your browser and press Ctrl+P to save it as a PDF.")
 
-# --- METHOD 2: URL SCRAPING ---
 elif input_method == "🔗 Scrape via LinkedIn URL":
     linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
     
@@ -133,7 +131,7 @@ elif input_method == "🔗 Scrape via LinkedIn URL":
                         raw_text = soup.get_text(separator=' ', strip=True)
                     else:
                         st.info("LinkedIn bot-protection active. Using fallback data for demonstration.")
-                        raw_text = "Name: Demo User. Headline: Software Developer. Skills: Python, AI, React. Experience: Senior Developer at TechCorp. Education: B.Tech."
+                        raw_text = "Name: Demo User. Headline: Software Developer. Skills: Python, AI, React. Experience: Senior Developer at TechCorp."
                 except:
                     raw_text = "Name: Demo User. Headline: Professional. Skills: General."
 
@@ -151,4 +149,3 @@ elif input_method == "🔗 Scrape via LinkedIn URL":
                     b64 = base64.b64encode(final_html.encode()).decode()
                     href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download Your CV</a>'
                     st.markdown(href, unsafe_allow_html=True)
-                    st.caption("Tip: Open the downloaded file in your browser and press Ctrl+P (or Cmd+P) to save it as a PDF.")
