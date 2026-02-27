@@ -6,37 +6,19 @@ import google.generativeai as genai
 import json
 import base64
 
-st.set_page_config(page_title="AI Pro CV Generator", page_icon="✨", layout="wide")
+st.set_page_config(page_title="Pro AI CV Generator", page_icon="📄", layout="wide")
 
 # ==========================================
-# 1. UI LOAD HOGA SABSE PEHLE
+# 1. CLEAN UI (Humesha Dikhega)
 # ==========================================
-st.title("✨ Ultimate AI LinkedIn to CV Generator")
-st.markdown("Choose your method below. Our AI will extract the data and design a beautiful CV.")
+st.title("📄 AI LinkedIn to CV Generator")
+st.markdown("Simply upload a LinkedIn PDF or paste a URL to generate a perfectly designed CV.")
 
-# URL aur PDF ka option hamesha dikhega
-input_method = st.radio("Select Input Method:", ("📄 Upload LinkedIn PDF", "🔗 Scrape via LinkedIn URL"))
+input_method = st.radio("Choose your method:", ("📄 Upload LinkedIn PDF", "🔗 Scrape via LinkedIn URL"))
 st.markdown("---")
 
 # ==========================================
-# 2. API KEY LOGIC (Background mein)
-# ==========================================
-api_key = None
-try:
-    # Try getting from secrets
-    api_key = st.secrets["GEMINI_API_KEY"]
-except:
-    pass
-
-# Agar secrets se nahi mili, toh sidebar mein manually dalne ka option dikhayenge
-if not api_key:
-    api_key = st.sidebar.text_input("🔑 Streamlit Secret missing. Enter Gemini API Key here to test:", type="password")
-
-if api_key:
-    genai.configure(api_key=api_key)
-
-# ==========================================
-# 3. HELPER FUNCTIONS
+# 2. DESIGN TEMPLATE
 # ==========================================
 def generate_html_cv(name, headline, contact_info, skills, main_content):
     html = f"""
@@ -54,7 +36,7 @@ def generate_html_cv(name, headline, contact_info, skills, main_content):
         .contact-item {{ font-size: 14px; margin-bottom: 10px; }}
         .skill-item {{ display: inline-block; background: rgba(255,255,255,0.1); padding: 5px 10px; margin: 5px 5px 0 0; border-radius: 3px; font-size: 13px; }}
         .content-text {{ font-size: 14px; line-height: 1.6; }}
-        ul {{ padding-left: 20px; }}
+        ul {{ padding-left: 20px; margin-top: 5px; }}
         li {{ margin-bottom: 8px; }}
     </style>
     </head>
@@ -63,16 +45,13 @@ def generate_html_cv(name, headline, contact_info, skills, main_content):
             <div class="left-col">
                 <h1>{name}</h1>
                 <div class="headline">{headline}</div>
-                
                 <h3>Contact</h3>
                 <div class="contact-item">📧 {contact_info}</div>
-                
                 <h3 style="margin-top:40px;">Top Skills</h3>
                 {"".join([f'<div class="skill-item">{skill.strip()}</div>' for skill in skills.split(',') if skill.strip()])}
             </div>
-            
             <div class="right-col">
-                <h2>Professional Experience & Education</h2>
+                <h2>Professional Details</h2>
                 <div class="content-text">{main_content}</div>
             </div>
         </div>
@@ -81,86 +60,95 @@ def generate_html_cv(name, headline, contact_info, skills, main_content):
     """
     return html
 
-def extract_data_with_ai(raw_text):
+# ==========================================
+# 3. AI EXTRACTION ENGINE
+# ==========================================
+def process_with_ai(raw_text):
+    # DIRECTLY fetching from secrets. If this fails, the app will show a clear error.
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key)
+    except Exception:
+        st.error("🚨 Configuration Error: The app couldn't find 'GEMINI_API_KEY' in Streamlit Secrets. Please check the exact spelling in your Streamlit dashboard.")
+        st.stop()
+
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"""
-        You are an expert HR recruiter. Analyze the following profile text and extract the information into a STRICT JSON format. 
-        Do not add any markdown formatting. Return ONLY the raw JSON object.
-        Keys must be exact: "name", "headline", "contact", "skills", "experience".
-        Profile Text: {raw_text[:8000]} 
+        Act as an expert HR. Extract data from this profile text into STRICT JSON. 
+        Return ONLY raw JSON, no markdown. 
+        Keys: "name", "headline", "contact", "skills" (comma separated), "experience" (formatted with HTML <p>, <ul>, <li>).
+        Text: {raw_text[:8000]} 
         """
         response = model.generate_content(prompt)
         clean_text = response.text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
         return json.loads(clean_text)
     except Exception as e:
-        st.error(f"🚨 API Error: {str(e)}")
+        st.error(f"🚨 AI Processing Error: {str(e)}")
         return None
 
 # ==========================================
-# 4. APP LOGIC (PDF & URL Actions)
+# 4. APP LOGIC
 # ==========================================
 
+# --- METHOD 1: PDF UPLOAD ---
 if input_method == "📄 Upload LinkedIn PDF":
     uploaded_file = st.file_uploader("Upload Profile PDF", type=['pdf'])
     
     if uploaded_file is not None:
-        if st.button("Generate AI CV from PDF", type="primary"):
-            if not api_key:
-                st.error("⚠️ API Key is missing! Please enter it in the sidebar.")
-            else:
-                with st.spinner("AI is reading the PDF and designing the CV..."):
-                    pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                    raw_text = "".join(page.extract_text() + "\n" for page in pdf_reader.pages)
-                    
-                    ai_data = extract_data_with_ai(raw_text)
-                    if ai_data:
-                        final_html = generate_html_cv(
-                            name=ai_data.get("name", "Name Not Found"),
-                            headline=ai_data.get("headline", "Professional"),
-                            contact_info=ai_data.get("contact", "Not Provided"),
-                            skills=ai_data.get("skills", "Communication, Teamwork"),
-                            main_content=ai_data.get("experience", "Experience details missing.")
-                        )
-                        st.success("✅ AI successfully generated your CV!")
-                        b64 = base64.b64encode(final_html.encode()).decode()
-                        href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download AI-Designed CV</a>'
-                        st.markdown(href, unsafe_allow_html=True)
-                        st.caption("Open downloaded file in browser and press Ctrl+P to save as PDF.")
-
-elif input_method == "🔗 Scrape via LinkedIn URL":
-    linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
-    
-    if st.button("Scrape & Generate AI CV", type="primary"):
-        if not api_key:
-            st.error("⚠️ API Key is missing! Please enter it in the sidebar.")
-        elif not linkedin_url:
-            st.warning("Please enter a URL.")
-        else:
-            with st.spinner("Scraping profile and bypassing security..."):
-                headers = {"User-Agent": "Mozilla/5.0"}
-                try:
-                    response = requests.get(linkedin_url, headers=headers, timeout=10)
-                    if response.status_code == 200:
-                        soup = BeautifulSoup(response.text, 'html.parser')
-                        extracted_text = soup.get_text(separator=' ', strip=True)
-                    else:
-                        st.warning("⚠️ LinkedIn blocked direct scraping. Passing fallback data to AI.")
-                        extracted_text = "Name: Demo User. Headline: Software Engineer. Skills: Python, React. Experience: Built amazing projects."
-                except:
-                    extracted_text = "Name: Demo User. Skills: Python."
-
-            with st.spinner("AI is structuring the data..."):
-                ai_data = extract_data_with_ai(extracted_text)
+        if st.button("Generate Perfect CV", type="primary"):
+            with st.spinner("Analyzing PDF and generating design..."):
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                raw_text = "".join(page.extract_text() + "\n" for page in pdf_reader.pages)
+                
+                ai_data = process_with_ai(raw_text)
                 if ai_data:
                     final_html = generate_html_cv(
                         name=ai_data.get("name", "Name Not Found"),
-                        headline=ai_data.get("headline", "Professional"),
+                        headline=ai_data.get("headline", "Professional Headline"),
                         contact_info=ai_data.get("contact", "Not Provided"),
-                        skills=ai_data.get("skills", "Python, Development"),
+                        skills=ai_data.get("skills", "Skill 1, Skill 2, Skill 3"),
                         main_content=ai_data.get("experience", "Experience details missing.")
                     )
-                    st.success("✅ AI successfully generated your CV!")
+                    st.success("✅ Perfect CV Generated!")
                     b64 = base64.b64encode(final_html.encode()).decode()
-                    href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download AI-Designed CV</a>'
+                    href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download Your CV</a>'
                     st.markdown(href, unsafe_allow_html=True)
+                    st.caption("Tip: Open the downloaded file in your browser and press Ctrl+P (or Cmd+P) to save it as a PDF.")
+
+# --- METHOD 2: URL SCRAPING ---
+elif input_method == "🔗 Scrape via LinkedIn URL":
+    linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
+    
+    if st.button("Scrape & Generate CV", type="primary"):
+        if not linkedin_url:
+            st.warning("Please enter a URL first.")
+        else:
+            with st.spinner("Scraping data..."):
+                try:
+                    headers = {"User-Agent": "Mozilla/5.0"}
+                    response = requests.get(linkedin_url, headers=headers, timeout=10)
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        raw_text = soup.get_text(separator=' ', strip=True)
+                    else:
+                        st.info("LinkedIn bot-protection active. Using fallback data for demonstration.")
+                        raw_text = "Name: Demo User. Headline: Software Developer. Skills: Python, AI, React. Experience: Senior Developer at TechCorp. Education: B.Tech."
+                except:
+                    raw_text = "Name: Demo User. Headline: Professional. Skills: General."
+
+            with st.spinner("AI is formatting the CV..."):
+                ai_data = process_with_ai(raw_text)
+                if ai_data:
+                    final_html = generate_html_cv(
+                        name=ai_data.get("name", "Name Not Found"),
+                        headline=ai_data.get("headline", "Professional Headline"),
+                        contact_info=ai_data.get("contact", "Not Provided"),
+                        skills=ai_data.get("skills", "Skill 1, Skill 2"),
+                        main_content=ai_data.get("experience", "Experience details missing.")
+                    )
+                    st.success("✅ Perfect CV Generated!")
+                    b64 = base64.b64encode(final_html.encode()).decode()
+                    href = f'<a href="data:text/html;base64,{b64}" download="{ai_data.get("name", "User").replace(" ", "_")}_CV.html" style="display:inline-block; padding:12px 24px; background-color:#4CAF50; color:white; text-decoration:none; border-radius:5px; font-weight:bold;">📥 Download Your CV</a>'
+                    st.markdown(href, unsafe_allow_html=True)
+                    st.caption("Tip: Open the downloaded file in your browser and press Ctrl+P (or Cmd+P) to save it as a PDF.")
