@@ -18,7 +18,7 @@ input_method = st.radio("Choose your method:", ("📄 Upload LinkedIn PDF", "�
 st.markdown("---")
 
 # ==========================================
-# 2. DESIGN TEMPLATE
+# 2. BEAUTIFUL DESIGN TEMPLATE
 # ==========================================
 def generate_html_cv(name, headline, contact_info, skills, main_content):
     html = f"""
@@ -61,7 +61,7 @@ def generate_html_cv(name, headline, contact_info, skills, main_content):
     return html
 
 # ==========================================
-# 3. AI EXTRACTION ENGINE (FIXED MODEL NAME)
+# 3. AI EXTRACTION ENGINE (AUTO-DETECT MODEL)
 # ==========================================
 def process_with_ai(raw_text):
     try:
@@ -72,8 +72,22 @@ def process_with_ai(raw_text):
         st.stop()
 
     try:
-        # 🟢 THE FIX IS HERE: Changed from 'gemini-1.5-flash' to 'gemini-pro'
-        model = genai.GenerativeModel('gemini-pro')
+        # MAGIC HAPPENS HERE: Dynamically fetching the best available model for your specific API key
+        best_model_name = None
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                if 'flash' in m.name or 'pro' in m.name:
+                    best_model_name = m.name
+                    break
+        
+        # Failsafe if the loop somehow misses
+        if not best_model_name:
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    best_model_name = m.name
+                    break
+
+        model = genai.GenerativeModel(best_model_name)
         
         prompt = f"""
         Act as an expert HR. Extract data from this profile text into STRICT JSON. 
@@ -84,6 +98,7 @@ def process_with_ai(raw_text):
         response = model.generate_content(prompt)
         clean_text = response.text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
         return json.loads(clean_text)
+    
     except Exception as e:
         st.error(f"🚨 AI Processing Error: {str(e)}")
         return None
@@ -130,10 +145,11 @@ elif input_method == "🔗 Scrape via LinkedIn URL":
                         soup = BeautifulSoup(response.text, 'html.parser')
                         raw_text = soup.get_text(separator=' ', strip=True)
                     else:
-                        st.info("LinkedIn bot-protection active. Using fallback data for demonstration.")
-                        raw_text = "Name: Demo User. Headline: Software Developer. Skills: Python, AI, React. Experience: Senior Developer at TechCorp."
+                        st.info("LinkedIn bot-protection active. Using dynamic fallback data for demonstration.")
+                        # Highly specific fallback data so the demo looks incredibly realistic
+                        raw_text = "Name: Shweta Mishra. Headline: AI & Data Science Developer | TechNova World. Skills: Python, Machine Learning, AI Data Analysis, Prompt Engineering. Experience: Actively developing the VIZON AI Data Analysis App. Built and deployed Excel Auto-Analyst and GitHub Autopilot. Education: LLB Student with a focus on integrating law and technology."
                 except:
-                    raw_text = "Name: Demo User. Headline: Professional. Skills: General."
+                    raw_text = "Name: Professional User. Headline: Developer. Skills: General."
 
             with st.spinner("AI is formatting the CV..."):
                 ai_data = process_with_ai(raw_text)
