@@ -8,7 +8,7 @@ def call_groq(prompt):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.0, # 🔴 ZERO CREATIVITY. STRICTLY REAL FACTS ONLY.
+        temperature=0.0, 
     )
     return response.choices[0].message.content
 
@@ -24,39 +24,50 @@ def generate_with_fallback(prompt):
         except Exception as groq_e:
             raise Exception("API Error: Both engines failed.")
 
+def clean_and_parse_json(response_text):
+    """Senior Dev Trick: Extracts ONLY the JSON part from AI output, ignoring extra text."""
+    try:
+        # Find the first '{' and the last '}'
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_string = response_text[start_idx:end_idx+1]
+            return json.loads(json_string)
+        else:
+            # If brackets aren't found, try parsing the raw text anyway
+            return json.loads(response_text)
+    except json.JSONDecodeError as e:
+        print(f"CRITICAL PARSE ERROR. Raw Output was: {response_text}")
+        raise e
+
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are a STRICT Data Extractor. Convert the text into STRICT JSON format. Do not use markdown blocks like ```json.
+    You are a STRICT Data Extractor. Convert the text into STRICT JSON format. 
     Keys required: "name", "headline", "contact", "skills" (comma string), "experience", "education", "certificates".
 
-    CRITICAL RULES (READ CAREFULLY):
-    1. ABSOLUTELY NO AI GENERATION: DO NOT write paragraphs praising the candidate. DO NOT invent ANY text.
-    2. EXTRACT EXACT FACTS ONLY: If the text provides a "REAL HEADLINE/TITLE" or "REAL ABOUT/SUMMARY", copy that EXACT information into the "headline" and "experience" fields. Do not alter it.
-    3. HIDE MISSING SECTIONS: If Education, Certificates, Experience, or Skills are NOT explicitly mentioned in the scraped text, return an EMPTY STRING "". 
-       - DO NOT write "Data protected". 
-       - DO NOT write "No data found". 
-       - Just leave it completely empty ("") so the UI can hide the section cleanly.
-    4. PDF TEXT: If it's a long PDF text, extract all facts normally into HTML <p>, <ul>, <li>.
-
+    CRITICAL RULES:
+    1. EXTRACT EXACT FACTS ONLY: Copy the real headline and real summary into the respective fields.
+    2. HIDE MISSING SECTIONS: If Education, Certificates, Experience, or Skills are NOT explicitly mentioned, return an EMPTY STRING "". Do NOT write "No data found".
+    3. NO CHIT-CHAT: Output ONLY the JSON object. Do not say "Here is the data".
+    
     Text to process: {raw_text[:8000]}
     """
     response_text = generate_with_fallback(prompt)
-    clean_text = response_text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
-    return json.loads(clean_text)
+    return clean_and_parse_json(response_text)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
     prompt = f"""
     Act as an Expert ATS System.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake companies or fake experience.
+    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake companies or experience.
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report".
 
-    Return STRICT JSON. No markdown blocks.
+    Return STRICT JSON. 
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
     """
     response_text = generate_with_fallback(prompt)
-    clean_text = response_text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
-    return json.loads(clean_text)
+    return clean_and_parse_json(response_text)
