@@ -2,25 +2,48 @@ import google.generativeai as genai
 import json
 import streamlit as st
 
-def get_gemini_model():
+def generate_with_fallback(prompt):
+    """
+    SENIOR DEV TRICK: The Retry Cascade.
+    Agar ek model Google ke server par fail hota hai, toh yeh code chupchap dusra model try karega
+    bina user ko error dikhaye.
+    """
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    
+    # Hum saare latest models ki list bana lenge. Jo chalega, usse kaam nikal lenge.
+    models_to_try = [
+        'gemini-1.5-flash', 
+        'gemini-1.5-flash-latest', 
+        'gemini-1.0-pro', 
+        'gemini-pro'
+    ]
+    
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            last_error = e
+            continue # Ek fail hua toh koi baat nahi, loop dusre model par chala jayega
+            
+    # Agar Google ka poora server hi down hai tabhi yeh error aayega
+    raise Exception(f"Google API is currently unstable. Last error: {last_error}")
 
 def extract_base_cv(raw_text):
-    model = get_gemini_model()
     prompt = f"""
     Extract data into STRICT JSON. No markdown.
     Keys: "name", "headline", "contact", "skills" (comma separated), "experience" (format with basic HTML <p>, <ul>, <li>).
     If the text is sparse, intelligently expand the skills and experience based on the headline/name to make a complete profile.
     Text: {raw_text[:8000]}
     """
-    response = model.generate_content(prompt)
-    clean_text = response.text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
+    response_text = generate_with_fallback(prompt)
+    clean_text = response_text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
     return json.loads(clean_text)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
-    model = get_gemini_model()
     prompt = f"""
     Act as an Expert ATS System. Compare Base Resume with JD.
     Tasks:
@@ -40,6 +63,6 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
     """
-    response = model.generate_content(prompt)
-    clean_text = response.text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
+    response_text = generate_with_fallback(prompt)
+    clean_text = response_text.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()
     return json.loads(clean_text)
