@@ -25,7 +25,7 @@ def generate_with_fallback(prompt, temp=0.2):
             raise Exception("API Error: Both engines failed.")
 
 def clean_and_parse_json(response_text, is_analysis=False):
-    """Smart Parser: Fixes data types so Streamlit never crashes or prints single letters!"""
+    """Crash-proof JSON Parser"""
     try:
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
@@ -35,13 +35,11 @@ def clean_and_parse_json(response_text, is_analysis=False):
             parsed_data = json.loads(response_text)
             
         if is_analysis:
-            # 🛡️ FIX FOR ATS REPORT (Stops the T, h, e, c... bug)
             if "analysis_report" in parsed_data:
                 if isinstance(parsed_data["analysis_report"], str):
                     parsed_data["analysis_report"] = [parsed_data["analysis_report"]]
             return parsed_data
         else:
-            # 🛡️ FIX FOR CV STYLES (Stops the split(',') crash)
             if isinstance(parsed_data.get("skills"), list):
                 parsed_data["skills"] = ", ".join(str(x) for x in parsed_data["skills"])
             elif not parsed_data.get("skills"):
@@ -52,17 +50,17 @@ def clean_and_parse_json(response_text, is_analysis=False):
                     parsed_data[key] = ""
                 elif isinstance(parsed_data.get(key), list):
                     parsed_data[key] = "".join(str(x) for x in parsed_data[key])
-                    
             return parsed_data
     except Exception as e:
         if is_analysis:
-            return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": ["Analysis generation failed. Please try again."]}
+            return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": ["Analysis generation failed."]}
         return {"name": "Data Error", "headline": "", "contact": "", "skills": "", "experience": "", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
     is_pdf = len(raw_text) > 1000
 
     if is_pdf:
+        # PDF PROMPT (Untouched - Works Perfectly)
         prompt = f"""
         You are an Expert Resume Parser. Output ONLY STRICT JSON.
         Keys required: "name", "headline", "contact", "skills" (comma separated string), "experience", "education", "certificates".
@@ -75,22 +73,26 @@ def extract_base_cv(raw_text):
         """
         response_text = generate_with_fallback(prompt, temp=0.2)
     else:
+        # URL PROMPT (Fixed to actually build the CV from short data)
         prompt = f"""
         You are a STRICT Data Parser. Output ONLY STRICT JSON.
         Keys required: "name", "headline", "contact", "skills" (comma separated string), "experience", "education", "certificates".
 
         CRITICAL RULES FOR URL DATA:
-        1. ZERO HALLUCINATION. DO NOT invent fake companies, jobs, or skills.
-        2. Extract exactly what is provided in the text.
-        3. Leave ALL missing sections as completely EMPTY STRINGS "". DO NOT write "No data found".
+        1. ZERO HALLUCINATION. DO NOT invent fake companies or fake degrees.
+        2. "name" & "headline": Extract from the "REAL NAME AND TITLE".
+        3. "experience": Put the "REAL SUMMARY" here formatted inside a <p> tag to build the professional overview.
+        4. "skills": Extract any professional keywords found in the summary as a comma-separated string.
+        5. Leave "education" and "certificates" as completely EMPTY STRINGS "". DO NOT write "No data found".
         
         Text to process: {raw_text[:2000]}
         """
-        response_text = generate_with_fallback(prompt, temp=0.0)
+        response_text = generate_with_fallback(prompt, temp=0.1)
 
     return clean_and_parse_json(response_text, is_analysis=False)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
+    # ATS PROMPT (Untouched - Works Perfectly)
     prompt = f"""
     Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
@@ -99,7 +101,7 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report" as an ARRAY OF STRINGS (e.g., ["Point 1", "Point 2"]).
 
-    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report" (MUST BE A LIST)
+    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
     
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
