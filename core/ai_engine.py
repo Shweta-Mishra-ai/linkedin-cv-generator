@@ -8,7 +8,7 @@ def call_groq(prompt):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.0, 
+        temperature=0.2, # Balanced temperature
     )
     return response.choices[0].message.content
 
@@ -25,32 +25,36 @@ def generate_with_fallback(prompt):
             raise Exception("API Error: Both engines failed.")
 
 def clean_and_parse_json(response_text):
-    """Senior Dev Trick: Extracts ONLY the JSON part from AI output, ignoring extra text."""
+    """Bulletproof JSON parser to prevent crashes."""
     try:
-        # Find the first '{' and the last '}'
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
-        
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_string = response_text[start_idx:end_idx+1]
-            return json.loads(json_string)
-        else:
-            # If brackets aren't found, try parsing the raw text anyway
-            return json.loads(response_text)
-    except json.JSONDecodeError as e:
-        print(f"CRITICAL PARSE ERROR. Raw Output was: {response_text}")
-        raise e
+            return json.loads(response_text[start_idx:end_idx+1])
+        return json.loads(response_text)
+    except Exception as e:
+        # Emergency fallback if AI goes completely crazy
+        return {"name": "Data Processing Error", "headline": "Please try again.", "contact": "", "skills": "", "experience": "<p>Error parsing data.</p>", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are a STRICT Data Extractor. Convert the text into STRICT JSON format. 
-    Keys required: "name", "headline", "contact", "skills" (comma string), "experience", "education", "certificates".
+    You are an Expert ATS Resume Parser. Output ONLY STRICT JSON. Do not use markdown blocks like ```json.
+    Keys required: "name", "headline", "contact", "skills" (comma separated), "experience", "education", "certificates".
 
-    CRITICAL RULES:
-    1. EXTRACT EXACT FACTS ONLY: Copy the real headline and real summary into the respective fields.
-    2. HIDE MISSING SECTIONS: If Education, Certificates, Experience, or Skills are NOT explicitly mentioned, return an EMPTY STRING "". Do NOT write "No data found".
-    3. NO CHIT-CHAT: Output ONLY the JSON object. Do not say "Here is the data".
+    CRITICAL LOGIC BASED ON TEXT LENGTH:
     
+    SCENARIO 1: DETAILED TEXT (e.g., PDF Resume Upload)
+    If the text contains detailed history, jobs, and education:
+    - Intelligently extract EVERYTHING. 
+    - Fix messy formatting and organize it beautifully using HTML <p>, <ul>, <li> tags.
+    - Do not leave any valid data behind.
+
+    SCENARIO 2: SHORT TEXT (e.g., URL Scrape)
+    If the text is very short (just Name, Title, and basic summary):
+    - ZERO HALLUCINATION. Do NOT invent fake companies (like "XYZ Corp") or fake degrees.
+    - Map the real title and summary into the "headline" and "experience" fields.
+    - For completely missing sections (like education or certificates), return an EMPTY STRING "". Do not write "No data found".
+
     Text to process: {raw_text[:8000]}
     """
     response_text = generate_with_fallback(prompt)
@@ -58,14 +62,15 @@ def extract_base_cv(raw_text):
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
     prompt = f"""
-    Act as an Expert ATS System.
+    Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake companies or experience.
+    3. Create "tailored_cv": Add missing keywords to skills. Rephrase experience to align with JD, but DO NOT ADD FAKE COMPANIES OR JOBS.
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report".
 
-    Return STRICT JSON. 
+    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
+    
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
     """
