@@ -10,6 +10,16 @@ st.set_page_config(page_title="Pro ATS CV Generator", page_icon="🎯", layout="
 st.title("🎯 AI-Powered ATS CV Generator")
 st.markdown("Extract your profile, analyze it against a JD, and generate a tailored CV with premium templates.")
 
+# --- SENIOR DEV TRICK: CACHING API CALLS ---
+# This prevents the "ResourceExhausted" error by not hitting the API unnecessarily
+@st.cache_data(show_spinner=False)
+def cached_extract_base(raw_text):
+    return extract_base_cv(raw_text)
+
+@st.cache_data(show_spinner=False)
+def cached_analyze(base_cv_data, jd_input):
+    return analyze_and_tailor_cv(base_cv_data, jd_input)
+
 # --- SIDEBAR ---
 st.sidebar.title("🎨 Formatting Options")
 template_options = [
@@ -26,6 +36,8 @@ tab1, tab2 = st.tabs(["📄 Step 1: Base Profile & Preview", "🎯 Step 2: ATS T
 
 if "base_cv_data" not in st.session_state:
     st.session_state.base_cv_data = None
+if "analysis_result" not in st.session_state:
+    st.session_state.analysis_result = None
 
 with tab1:
     st.subheader("Upload Your Profile")
@@ -35,18 +47,24 @@ with tab1:
         uploaded_file = st.file_uploader("Upload Profile PDF", type=['pdf'])
         if st.button("Extract Base CV", type="primary") and uploaded_file:
             with st.spinner("Analyzing PDF..."):
-                raw_text = extract_pdf_text(uploaded_file)
-                st.session_state.base_cv_data = extract_base_cv(raw_text)
-                st.success("✅ Profile Extracted Successfully!")
+                try:
+                    raw_text = extract_pdf_text(uploaded_file)
+                    st.session_state.base_cv_data = cached_extract_base(raw_text)
+                    st.success("✅ Profile Extracted Successfully!")
+                except Exception as e:
+                    st.error(f"API Error: Please wait a minute and try again. (Details: {e})")
                     
     elif input_method == "🔗 Scrape via LinkedIn URL":
         linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
-        st.caption("Note: LinkedIn blocks direct scraping. The AI will intelligently build a profile based on public metadata.")
+        st.caption("Note: LinkedIn blocks direct scraping. The AI will intelligently build a highly professional profile based on your public name.")
         if st.button("Extract Base CV", type="primary") and linkedin_url:
-            with st.spinner("Intelligently extracting & building profile..."):
-                raw_text = scrape_url_text(linkedin_url)
-                st.session_state.base_cv_data = extract_base_cv(raw_text)
-                st.success("✅ Profile Extracted Successfully!")
+            with st.spinner("Intelligently extracting & building a full professional profile..."):
+                try:
+                    raw_text = scrape_url_text(linkedin_url)
+                    st.session_state.base_cv_data = cached_extract_base(raw_text)
+                    st.success("✅ Profile Built Successfully!")
+                except Exception as e:
+                    st.error(f"API Error: Please wait a minute and try again. (Details: {e})")
 
     if st.session_state.base_cv_data:
         st.markdown("---")
@@ -67,37 +85,48 @@ with tab2:
         jd_input = st.text_area("Paste the Target Job Description here:", height=150)
         
         if st.button("Analyze, Tailor & Preview CV", type="primary") and jd_input:
-            with st.spinner("AI is analyzing ATS score and crafting your perfect CV..."):
-                analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
-                
-                # 1. SHOW THE SCORE
-                st.markdown("### 📈 ATS Score Improvement")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric(label="Original Score", value=f"{analysis_result['old_ats_score']}%")
-                with col2:
-                    st.metric(label="New Tailored Score", value=f"{analysis_result['new_ats_score']}%", delta=f"+{analysis_result['new_ats_score'] - analysis_result['old_ats_score']}%")
-                with col3:
-                    st.write("**🚨 Added Keywords:**")
-                    st.write(", ".join(analysis_result.get('missing_keywords', [])))
-                
-                st.markdown("---")
-                
-                # 2. SHOW ANALYSIS REPORT
-                st.markdown("### 📊 Detailed Analysis & Improvement Report")
-                for point in analysis_result.get('analysis_report', []):
-                    st.markdown(f"- {point}")
-                
-                st.markdown("---")
-                
-                # 3. SHOW THE LIVE PREVIEW
-                st.markdown("### 👀 Live Tailored CV Preview")
-                tailored_html = render_cv(selected_template, analysis_result['tailored_cv'])
-                components.html(tailored_html, height=600, scrolling=True)
-                
-                st.markdown("---")
-                
-                # 4. DOWNLOAD BUTTON
-                b64_tailored = base64.b64encode(tailored_html.encode()).decode()
-                href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#14b8a6; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 I am Satisfied - Download My ATS-Optimized CV</a>'
-                st.markdown(href_tailored, unsafe_allow_html=True)
+            with st.spinner("AI is analyzing ATS score and crafting your perfect CV... This may take up to 15 seconds."):
+                try:
+                    # Using cached version to save API quota
+                    st.session_state.analysis_result = cached_analyze(st.session_state.base_cv_data, jd_input)
+                except Exception as e:
+                    st.error(f"API Error: Too many requests. Google API needs a break. Please wait 30 seconds and click again. (Details: {e})")
+
+        # If we have results, show them (even if button wasn't just clicked, so template changes work)
+        if st.session_state.analysis_result:
+            analysis_result = st.session_state.analysis_result
+            
+            # 1. SHOW THE SCORE
+            st.markdown("### 📈 ATS Score Improvement")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(label="Original Score", value=f"{analysis_result.get('old_ats_score', 0)}%")
+            with col2:
+                delta_val = analysis_result.get('new_ats_score', 0) - analysis_result.get('old_ats_score', 0)
+                st.metric(label="New Tailored Score", value=f"{analysis_result.get('new_ats_score', 0)}%", delta=f"+{delta_val}%")
+            with col3:
+                st.write("**🚨 Added Keywords:**")
+                st.write(", ".join(analysis_result.get('missing_keywords', [])))
+            
+            st.markdown("---")
+            
+            # 2. SHOW ANALYSIS REPORT
+            st.markdown("### 📊 Detailed Analysis & Improvement Report")
+            for point in analysis_result.get('analysis_report', ["Analysis report unavailable."]):
+                st.markdown(f"- {point}")
+            
+            st.markdown("---")
+            
+            # 3. SHOW THE LIVE PREVIEW
+            st.markdown("### 👀 Live Tailored CV Preview")
+            st.info(f"Currently viewing: **{selected_template}**. You can change templates in the sidebar and it will update instantly without using API quota!")
+            
+            tailored_html = render_cv(selected_template, analysis_result.get('tailored_cv', {}))
+            components.html(tailored_html, height=600, scrolling=True)
+            
+            st.markdown("---")
+            
+            # 4. DOWNLOAD BUTTON
+            b64_tailored = base64.b64encode(tailored_html.encode()).decode()
+            href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#14b8a6; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 I am Satisfied - Download My ATS-Optimized CV</a>'
+            st.markdown(href_tailored, unsafe_allow_html=True)
