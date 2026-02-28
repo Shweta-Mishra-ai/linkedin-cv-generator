@@ -8,7 +8,7 @@ def call_groq(prompt):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.0, # STRICT ZERO HALLUCINATION
+        temperature=0.0, # ZERO HALLUCINATION. FACTUAL ONLY.
     )
     return response.choices[0].message.content
 
@@ -25,7 +25,7 @@ def generate_with_fallback(prompt):
             raise Exception("API Error: Both engines failed.")
 
 def clean_and_parse_json(response_text):
-    """Bulletproof JSON parser to prevent crashes."""
+    """Bulletproof JSON parser"""
     try:
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
@@ -33,24 +33,22 @@ def clean_and_parse_json(response_text):
             return json.loads(response_text[start_idx:end_idx+1])
         return json.loads(response_text)
     except Exception as e:
-        return {"name": "Parse Error", "headline": "", "contact": "", "skills": "", "experience": "", "education": "", "certificates": ""}
+        return {"name": "Data Error", "headline": "", "contact": "", "skills": "", "experience": "", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are a STRICT Data Extractor. Output ONLY JSON. Do not write markdown blocks.
+    You are a STRICT Data Parser. Output ONLY JSON. Do not use markdown blocks.
     Keys required: "name", "headline", "contact", "skills", "experience", "education", "certificates".
 
-    CRITICAL RULES (FOLLOW EXACTLY):
-    1. ZERO FAKE DATA: Extract exactly what is in the text. DO NOT invent companies, jobs, or paragraphs of text.
-    2. If the text provides "REAL NAME AND TITLE" and "REAL SUMMARY", put the title in "headline" and the summary in "experience".
-    3. MISSING SECTIONS: If a section (like education, skills, or certificates) is missing from the text, you MUST leave it as an empty string "". 
-       - DO NOT write "Not available".
-       - DO NOT write "No data found".
-       - DO NOT write "Profile blocked".
-       - Just return "" so the UI hides it cleanly.
-    4. PDF TEXT: If detailed text is provided (e.g., from a PDF), extract all sections normally and accurately.
+    CRITICAL RULES - READ CAREFULLY:
+    1. ZERO HALLUCINATION: You MUST extract exactly what is provided in the text. Do NOT invent fake companies, DO NOT write long paragraphs praising the candidate, DO NOT invent skills.
+    2. URL DATA PARSING:
+       - If you see "REAL PAGE TITLE", extract the Name into "name" and the Role into "headline".
+       - If you see "REAL SUMMARY", put that exact summary directly into the "experience" field using HTML <p> tags.
+       - Leave "skills", "education", and "certificates" completely empty (return "") unless explicitly stated.
+    3. PDF DATA PARSING: If the text is a long, detailed PDF document, extract all sections normally and accurately.
 
-    Text: {raw_text[:8000]}
+    Text to parse: {raw_text[:8000]}
     """
     response_text = generate_with_fallback(prompt)
     return clean_and_parse_json(response_text)
@@ -61,7 +59,7 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills ONLY.
+    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake experience.
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report".
 
