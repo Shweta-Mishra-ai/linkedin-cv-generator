@@ -8,7 +8,7 @@ def call_groq(prompt):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.2, 
+        temperature=0.0, # 🔴 ZERO CREATIVITY. STRICTLY REAL FACTS ONLY.
     )
     return response.choices[0].message.content
 
@@ -26,20 +26,17 @@ def generate_with_fallback(prompt):
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are an Expert ATS Resume Builder. Convert the text into STRICT JSON format. Do not use markdown blocks like ```json.
-    Keys required: "name", "headline", "contact", "skills" (comma separated), "experience", "education", "certificates".
+    You are a STRICT Data Extractor. Convert the text into STRICT JSON format. Do not use markdown blocks like ```json.
+    Keys required: "name", "headline", "contact", "skills" (comma string), "experience", "education", "certificates".
 
-    CRITICAL RULES:
-    1. IF PDF DATA (Detailed text): Extract all real companies, jobs, and education perfectly.
-    2. IF URL DATA (Sparse text with "Candidate Name"):
-       - DO NOT leave the CV empty or write "No data found".
-       - DO NOT invent fake companies like "XYZ Corp".
-       - "headline": Write a strong professional title based on their name/page title.
-       - "skills": Infer and list 8-10 highly relevant professional skills based on the context.
-       - "experience": Write a 3-sentence "Professional Summary" praising their expertise in the field. Then add one bullet point: "<li><i>Detailed career history is protected by LinkedIn privacy settings. Please upload a PDF resume for full ATS analysis.</i></li>"
-       - "education": "<p><i>Details protected by privacy settings.</i></p>"
-       - "certificates": "" (Leave empty so the UI hides it).
-    3. FORMATTING: Use HTML <p>, <ul>, <li>.
+    CRITICAL RULES (READ CAREFULLY):
+    1. ABSOLUTELY NO AI GENERATION: DO NOT write paragraphs praising the candidate. DO NOT invent ANY text.
+    2. EXTRACT EXACT FACTS ONLY: If the text provides a "REAL HEADLINE/TITLE" or "REAL ABOUT/SUMMARY", copy that EXACT information into the "headline" and "experience" fields. Do not alter it.
+    3. HIDE MISSING SECTIONS: If Education, Certificates, Experience, or Skills are NOT explicitly mentioned in the scraped text, return an EMPTY STRING "". 
+       - DO NOT write "Data protected". 
+       - DO NOT write "No data found". 
+       - Just leave it completely empty ("") so the UI can hide the section cleanly.
+    4. PDF TEXT: If it's a long PDF text, extract all facts normally into HTML <p>, <ul>, <li>.
 
     Text to process: {raw_text[:8000]}
     """
@@ -52,7 +49,7 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     Act as an Expert ATS System.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills. Do NOT add fake companies.
+    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake companies or fake experience.
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report".
 
