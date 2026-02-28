@@ -15,7 +15,7 @@ st.sidebar.title("🎨 Formatting Options")
 selected_template = st.sidebar.selectbox("Choose CV Template:", ["Executive Blue (Premium)", "Modern Accent (Clean)", "Classic Corporate"])
 
 # --- TABS ---
-tab1, tab2 = st.tabs(["📄 Step 1: Base Profile", "🎯 Step 2: ATS Tailoring & Preview"])
+tab1, tab2 = st.tabs(["📄 Step 1: Base Profile & Preview", "🎯 Step 2: ATS Tailoring (Optional)"])
 
 if "base_cv_data" not in st.session_state:
     st.session_state.base_cv_data = None
@@ -31,7 +31,7 @@ with tab1:
                 try:
                     raw_text = extract_pdf_text(uploaded_file)
                     st.session_state.base_cv_data = extract_base_cv(raw_text)
-                    st.success("✅ Profile Extracted Successfully! Move to Step 2.")
+                    st.success("✅ Profile Extracted Successfully!")
                 except Exception as e:
                     st.error(f"Error: {e}. Please check your API Key.")
                     
@@ -43,9 +43,27 @@ with tab1:
                 try:
                     raw_text = scrape_url_text(linkedin_url)
                     st.session_state.base_cv_data = extract_base_cv(raw_text)
-                    st.success("✅ Profile Extracted Successfully! Move to Step 2.")
+                    st.success("✅ Profile Extracted Successfully!")
                 except Exception as e:
                     st.error(f"Error: {e}. Please check your API Key.")
+
+    # 🟢 FIX: SHOW PREVIEW & DOWNLOAD DIRECTLY IN STEP 1
+    if st.session_state.base_cv_data:
+        st.markdown("---")
+        st.markdown("### 👀 Base CV Preview")
+        st.info(f"Currently viewing: **{selected_template}**. Change the template from the sidebar on the left! To optimize this for a specific job description, go to **Step 2**.")
+        
+        base_html = render_cv(selected_template, st.session_state.base_cv_data)
+        
+        # Render HTML directly in Streamlit
+        components.html(base_html, height=600, scrolling=True)
+        
+        st.markdown("---")
+        
+        # DOWNLOAD BUTTON FOR BASE CV
+        b64_base = base64.b64encode(base_html.encode()).decode()
+        href_base = f'<a href="data:text/html;base64,{b64_base}" download="Base_CV.html" style="display:inline-block; padding:12px 24px; background-color:#1e3a8a; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 Download Base CV</a>'
+        st.markdown(href_base, unsafe_allow_html=True)
 
 with tab2:
     st.subheader("Tailor to a Job Description")
@@ -59,7 +77,6 @@ with tab2:
                 try:
                     analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
                     
-                    # 1. SHOW THE SCORE IMPROVEMENT
                     st.markdown("### 📈 ATS Score Improvement")
                     col1, col2, col3 = st.columns(3)
                     with col1:
@@ -72,20 +89,16 @@ with tab2:
                     
                     st.markdown("---")
                     
-                    # 2. SHOW THE LIVE PREVIEW
-                    st.markdown("### 👀 Live CV Preview")
+                    st.markdown("### 👀 Live Tailored CV Preview")
                     st.info(f"Currently viewing: **{selected_template}**. You can change the template from the sidebar.")
                     
                     tailored_html = render_cv(selected_template, analysis_result['tailored_cv'])
-                    
-                    # Render HTML directly in Streamlit
                     components.html(tailored_html, height=600, scrolling=True)
                     
                     st.markdown("---")
                     
-                    # 3. DOWNLOAD BUTTON
                     b64_tailored = base64.b64encode(tailored_html.encode()).decode()
-                    href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#1e3a8a; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 I am Satisfied - Download My CV</a>'
+                    href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#1e3a8a; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 Download Tailored CV</a>'
                     st.markdown(href_tailored, unsafe_allow_html=True)
                     
                 except Exception as e:
