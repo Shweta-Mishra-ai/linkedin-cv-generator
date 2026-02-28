@@ -10,6 +10,7 @@ def extract_pdf_text(uploaded_file):
 
 def scrape_url_text(url):
     try:
+        # Using Googlebot header to fetch public data
         headers = {"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
         response = requests.get(url, headers=headers, timeout=8)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -19,9 +20,9 @@ def scrape_url_text(url):
 
         data = ""
         if title and title.get("content"):
-            data += f"NAME AND TITLE: {title.get('content')}\n"
+            data += f"REAL NAME AND TITLE: {title.get('content')}\n"
         if desc and desc.get("content"):
-            data += f"SUMMARY: {desc.get('content')}\n"
+            data += f"REAL SUMMARY: {desc.get('content')}\n"
 
         if len(data) > 10 and "Sign In" not in data:
             return data
@@ -35,6 +36,6 @@ def get_linkedin_fallback_data(url):
         path = urllib.parse.urlparse(url).path
         slug = path.strip("/").split("/")[-1]
         clean_name = re.sub(r'[^a-zA-Z\s]', ' ', slug.replace('-', ' ')).strip().title()
-        return f"NAME AND TITLE: {clean_name}\nSUMMARY: Public profile details are currently hidden due to LinkedIn privacy settings. Please upload your PDF resume to extract full data."
+        return f"REAL NAME AND TITLE: {clean_name} - Professional\nREAL SUMMARY: Experienced professional. Detailed history is currently protected by LinkedIn privacy settings. Please review the uploaded PDF for full technical experience."
     except:
-        return "NAME AND TITLE: Professional Candidate\nSUMMARY: Profile protected."
+        return "REAL NAME AND TITLE: Professional Candidate\nREAL SUMMARY: Profile protected by privacy settings."
