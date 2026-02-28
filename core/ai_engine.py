@@ -17,7 +17,7 @@ def generate_with_fallback(prompt, temp=0.2):
     groq_error = None
 
     # Try multiple Gemini model names for compatibility
-    gemini_models = ["gemini-pro", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
+    gemini_models = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro", "gemini-1.0-pro"]
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         for model_name in gemini_models:
