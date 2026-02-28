@@ -1,5 +1,5 @@
 streamlit
 PyPDF2
-google-generativeai
 requests
 beautifulsoup4
+google-generativeai
