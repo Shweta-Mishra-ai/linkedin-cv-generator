@@ -1,15 +1,15 @@
 def render_cv(template_name, data):
     name = data.get("name", "Name Not Found")
-    headline = data.get("headline", "Professional")
-    contact = data.get("contact", "Not Provided")
-    skills = data.get("skills", "Communication")
-    experience = data.get("experience", "<p>Experience details missing.</p>")
+    headline = data.get("headline", "")
+    contact = data.get("contact", "")
+    skills = data.get("skills", "")
+    experience = data.get("experience", "<p>No experience data found.</p>")
     education = data.get("education", "")
     certificates = data.get("certificates", "")
 
-    # Base HTML for Edu & Certs (Will be styled per template below)
-    edu_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Education</h2><div style="font-size: 14px; line-height: 1.6;">{education}</div>' if education and len(education) > 5 else ''
-    cert_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Certifications</h2><div style="font-size: 14px; line-height: 1.6;">{certificates}</div>' if certificates and len(certificates) > 5 else ''
+    # Base HTML for Edu & Certs (Only shows if real data exists)
+    edu_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Education</h2><div style="font-size: 14px; line-height: 1.6;">{education}</div>' if education and len(education) > 5 and "hidden" not in education.lower() else ''
+    cert_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Certifications</h2><div style="font-size: 14px; line-height: 1.6;">{certificates}</div>' if certificates and len(certificates) > 5 and "hidden" not in certificates.lower() else ''
 
     # ==========================================
     # 1. Executive Blue (Premium)
@@ -26,7 +26,7 @@ def render_cv(template_name, data):
                     <h1 style="margin: 0; font-size: 32px; font-weight: 700; border-bottom: 2px solid #60a5fa; padding-bottom: 15px; margin-bottom: 15px;">{name}</h1>
                     <p style="font-size: 16px; color: #bfdbfe; font-style: italic; margin-bottom: 40px;">{headline}</p>
                     <h3 style="color: #60a5fa; text-transform: uppercase; font-size: 14px;">Contact Info</h3>
-                    <p style="font-size: 14px; line-height: 1.6;">📧 {contact}</p>
+                    <p style="font-size: 14px; line-height: 1.6;">{contact}</p>
                     <h3 style="color: #60a5fa; text-transform: uppercase; font-size: 14px; margin-top: 40px;">Core Skills</h3>
                     <div>{skills_html}</div>
                 </div>
