@@ -146,22 +146,23 @@ Text: {raw_text[:8000]}
     return clean_and_parse_json(response_text, is_analysis=False)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
+    # Trim the CV JSON to avoid token limits on free API tiers
+    trimmed_cv = json.dumps(base_cv_json)[:4000]
     prompt = f"""
-    Act as an Expert ATS System. Output ONLY a single valid JSON object. No markdown blocks, no explanation.
-    1. Calculate "old_ats_score" (0-100).
-    2. Identify 3-5 "missing_keywords" as a JSON array of strings.
-    3. Create "tailored_cv": A JSON object with these keys: "name", "headline", "contact", "skills", "experience", "education", "certificates".
-       - Copy "name", "headline", "contact", "education", "certificates" directly from the base resume without changing them.
-       - Improve "skills" by adding the missing keywords.
-       - Improve "experience" HTML to better match the JD. Do NOT invent fake companies.
-       - "experience", "education", "certificates" must be single HTML strings, not JSON arrays or objects.
-    4. Calculate "new_ats_score" (0-100).
-    5. Write "analysis_report" as a JSON array of strings.
+Act as an Expert ATS System. Output ONLY a raw JSON object. No markdown, no explanation.
+Required output keys: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
 
-    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
-    
-    BASE RESUME JSON: {json.dumps(base_cv_json)}
-    JD: {jd_text[:8000]}
-    """
+1. "old_ats_score": integer 0-100, how well the base CV matches the JD.
+2. "missing_keywords": JSON array of 3-5 key terms from JD missing in CV.
+3. "tailored_cv": JSON object with keys: name, headline, contact, skills, experience, education, certificates.
+   - Copy name, headline, contact, education, certificates from base CV exactly.
+   - Add missing keywords to skills (comma-separated string).
+   - Rewrite experience as a single HTML string with <p><b>Title</b></p><ul><li> tags to align with JD.
+4. "new_ats_score": integer 0-100, improved score after tailoring.
+5. "analysis_report": JSON array of 3-5 short strings explaining changes made.
+
+BASE CV: {trimmed_cv}
+JD: {jd_text[:3000]}
+"""
     response_text = generate_with_fallback(prompt, temp=0.2)
     return clean_and_parse_json(response_text, is_analysis=True)
