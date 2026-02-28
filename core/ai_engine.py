@@ -4,33 +4,36 @@ import streamlit as st
 
 def generate_with_fallback(prompt):
     """
-    SENIOR DEV TRICK: The Retry Cascade.
-    Agar ek model Google ke server par fail hota hai, toh yeh code chupchap dusra model try karega
-    bina user ko error dikhaye.
+    ULTIMATE FIX: Hum koi naam hardcode nahi karenge. 
+    Hum Google se available models ki list mangenge aur jo chalega use utha lenge.
     """
     api_key = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=api_key)
     
-    # Hum saare latest models ki list bana lenge. Jo chalega, usse kaam nikal lenge.
-    models_to_try = [
-        'gemini-1.5-flash', 
-        'gemini-1.5-flash-latest', 
-        'gemini-1.0-pro', 
-        'gemini-pro'
-    ]
+    valid_model = None
     
-    last_error = None
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            last_error = e
-            continue # Ek fail hua toh koi baat nahi, loop dusre model par chala jayega
+    # 1. Google ke server se direct available models ki list nikalna
+    available_models = []
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            available_models.append(m.name)
             
-    # Agar Google ka poora server hi down hai tabhi yeh error aayega
-    raise Exception(f"Google API is currently unstable. Last error: {last_error}")
+    if not available_models:
+        raise Exception("Aapki API key mein text generation available nahi hai. Shayad key block ho gayi hai.")
+        
+    # 2. Preference: Pehle 'flash' dhoondho (kyunki wo fast hai), warna jo pehla mile wo use kar lo
+    for name in available_models:
+        if 'flash' in name.lower():
+            valid_model = name
+            break
+            
+    if not valid_model:
+        valid_model = available_models[0] # Jo bhi pehla working model mile
+        
+    # 3. Model run karna
+    model = genai.GenerativeModel(valid_model)
+    response = model.generate_content(prompt)
+    return response.text
 
 def extract_base_cv(raw_text):
     prompt = f"""
