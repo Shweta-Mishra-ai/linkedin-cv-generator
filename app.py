@@ -47,13 +47,17 @@ with tab1:
                     
     elif input_method == "🔗 Scrape via LinkedIn URL":
         linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
-        st.warning("Note: LinkedIn blocks URL scraping. It will only fetch your name. For full experience details, use PDF.")
-        if st.button("Extract Real Data", type="primary") and linkedin_url:
-            with st.spinner("Fetching data from URL..."):
+        st.warning("Note: LinkedIn blocks full URL scraping. We will fetch your name/title, and the AI will *generate* a complete, tailored CV template for you to edit. For 100% real data, upload the PDF instead.")
+        
+        if st.button("Extract Data & Generate Template", type="primary") and linkedin_url:
+            with st.spinner("Fetching data and generating CV Template..."):
                 raw_text = scrape_url_text(linkedin_url)
-                st.session_state.base_cv_data = extract_base_cv(raw_text)
+                
+                # We always use generative template structure for URLs without a paid API.
+                st.session_state.base_cv_data = extract_base_cv(raw_text, is_url=True)
                 st.session_state.analysis_result = None
-                st.success("✅ Data Fetched Successfully!")
+                
+                st.success("✅ Professional CV Template Generated! (Please edit the generated experience/skills to match your real history).")
 
     # BASE PREVIEW & DOWNLOAD
     if st.session_state.base_cv_data:

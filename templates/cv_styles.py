@@ -1,11 +1,20 @@
 def render_cv(template_name, data):
-    name = data.get("name", "Name Not Found")
-    headline = data.get("headline", "")
-    contact = data.get("contact", "")
-    skills = data.get("skills", "")
-    experience = data.get("experience", "<p>No experience data found.</p>")
-    education = data.get("education", "")
-    certificates = data.get("certificates", "")
+    name = str(data.get("name", "Name Not Found"))
+    headline = str(data.get("headline", ""))
+    contact = str(data.get("contact", ""))
+    
+    # Defensive type conversions: AI sometimes returns lists instead of strings
+    skills_raw = data.get("skills", "")
+    skills = ", ".join([str(s) for s in skills_raw]) if isinstance(skills_raw, list) else str(skills_raw)
+    
+    exp_raw = data.get("experience", "<p>No experience data found.</p>")
+    experience = "".join([f"<p>{str(e)}</p>" for e in exp_raw]) if isinstance(exp_raw, list) else str(exp_raw)
+    
+    edu_raw = data.get("education", "")
+    education = "".join([f"<p>{str(e)}</p>" for e in edu_raw]) if isinstance(edu_raw, list) else str(edu_raw)
+    
+    cert_raw = data.get("certificates", "")
+    certificates = "".join([f"<p>{str(e)}</p>" for e in cert_raw]) if isinstance(cert_raw, list) else str(cert_raw)
 
     # Base HTML for Edu & Certs (Only shows if real data exists)
     edu_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Education</h2><div style="font-size: 14px; line-height: 1.6;">{education}</div>' if education and len(education) > 5 and "hidden" not in education.lower() else ''
