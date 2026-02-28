@@ -4,29 +4,39 @@ import json
 import streamlit as st
 
 def call_groq(prompt):
-    """Secondary API: Groq (Ultra-Fast Llama 3 Model)"""
+    """Secondary API: Groq (Updated to Latest Active Models)"""
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+    
+    # Try the absolute latest Llama 3.3 model first
     try:
-        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
         response = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-70b-8192", # Groq's smartest and fastest free model
+            model="llama-3.3-70b-versatile", 
             temperature=0.3,
         )
         return response.choices[0].message.content
-    except Exception as e:
-        raise Exception(f"Groq API Error: {str(e)}")
+    except:
+        # If Llama 3.3 fails, fallback to the super-stable Mixtral model
+        try:
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="mixtral-8x7b-32768",
+                temperature=0.3,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            raise Exception(f"Groq API Error: {str(e)}")
 
 def generate_with_fallback(prompt):
     """
     MASTER LOGIC: 
-    1. Try Gemini first (Smart Model Picker).
+    1. Try Gemini first.
     2. If Gemini throws ANY error (404, 429 Limit, etc.), instantly switch to Groq.
     """
     try:
         # Step 1: Attempt Gemini
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         
-        # Smartly pick a model that exists on this specific API key to avoid 404
         valid_model = 'gemini-1.0-pro' 
         try:
             available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -34,21 +44,20 @@ def generate_with_fallback(prompt):
                 if '1.5-flash' in name:
                     valid_model = name
                     break
-            # If 1.5-flash isn't available, pick anything that isn't the 20-limit model
             if valid_model not in available_models and available_models:
                 for name in available_models:
                     if 'pro' in name or ('flash' in name and '2.5' not in name):
                         valid_model = name
                         break
         except:
-            pass # Ignore list_models error and try fallback
+            pass 
 
         model = genai.GenerativeModel(valid_model)
         response = model.generate_content(prompt)
         return response.text
         
     except Exception as e:
-        # Step 2: Gemini Failed (Quota or 404). Activating Groq!
+        # Step 2: Gemini Failed. Activating Groq!
         print(f"Gemini Error ({str(e)}). Switching to Groq API...")
         return call_groq(prompt)
 
