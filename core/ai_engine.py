@@ -15,18 +15,32 @@ def call_groq(prompt, temp=0.2):
 def generate_with_fallback(prompt, temp=0.2):
     gemini_error = None
     groq_error = None
+
+    # Try multiple Gemini model names for compatibility
+    gemini_models = ["gemini-pro", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=temp))
-        return response.text
+        for model_name in gemini_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(temperature=temp)
+                )
+                return response.text
+            except Exception as model_err:
+                if "404" in str(model_err) or "not found" in str(model_err).lower():
+                    continue  # Try next model
+                raise model_err  # Re-raise non-404 errors
+        gemini_error = "No supported Gemini model found for this API key"
     except Exception as e:
         gemini_error = str(e)
+
     try:
         return call_groq(prompt, temp)
     except Exception as groq_e:
         groq_error = str(groq_e)
-    # Both failed - raise with real error details visible in logs
+
     raise Exception(f"API Error: Gemini failed [{gemini_error}], Groq failed [{groq_error}]")
 
 def _convert_to_html(value):
