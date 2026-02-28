@@ -3,29 +3,29 @@ from groq import Groq
 import json
 import streamlit as st
 
-def call_groq(prompt):
+def call_groq(prompt, temp=0.2):
     client = Groq(api_key=st.secrets["GROQ_API_KEY"])
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.0, # ZERO HALLUCINATION. FACTUAL ONLY.
+        temperature=temp, 
     )
     return response.choices[0].message.content
 
-def generate_with_fallback(prompt):
+def generate_with_fallback(prompt, temp=0.2):
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(prompt)
+        # Setting temperature dynamically based on PDF or URL
+        response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=temp))
         return response.text
     except Exception as e:
         try:
-            return call_groq(prompt)
+            return call_groq(prompt, temp)
         except Exception as groq_e:
             raise Exception("API Error: Both engines failed.")
 
 def clean_and_parse_json(response_text):
-    """Bulletproof JSON parser"""
     try:
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
@@ -36,25 +36,42 @@ def clean_and_parse_json(response_text):
         return {"name": "Data Error", "headline": "", "contact": "", "skills": "", "experience": "", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
-    prompt = f"""
-    You are a STRICT Data Parser. Output ONLY JSON. Do not use markdown blocks.
-    Keys required: "name", "headline", "contact", "skills", "experience", "education", "certificates".
+    # 🌟 THE ISOLATION LOGIC: Check if it's a PDF (>1000 chars) or URL (<1000 chars)
+    is_pdf = len(raw_text) > 1000
 
-    CRITICAL RULES - READ CAREFULLY:
-    1. ZERO HALLUCINATION: You MUST extract exactly what is provided in the text. Do NOT invent fake companies, DO NOT write long paragraphs praising the candidate, DO NOT invent skills.
-    2. URL DATA PARSING:
-       - If you see "REAL PAGE TITLE", extract the Name into "name" and the Role into "headline".
-       - If you see "REAL SUMMARY", put that exact summary directly into the "experience" field using HTML <p> tags.
-       - Leave "skills", "education", and "certificates" completely empty (return "") unless explicitly stated.
-    3. PDF DATA PARSING: If the text is a long, detailed PDF document, extract all sections normally and accurately.
+    if is_pdf:
+        # PATH A: PERFECT PDF PROMPT (Beautiful Formatting)
+        prompt = f"""
+        You are an Expert Resume Parser. Output ONLY STRICT JSON.
+        Keys required: "name", "headline", "contact", "skills", "experience", "education", "certificates".
 
-    Text to parse: {raw_text[:8000]}
-    """
-    response_text = generate_with_fallback(prompt)
+        CRITICAL RULES FOR PDF TEXT:
+        1. Extract ALL details perfectly (jobs, education, projects).
+        2. Format the "experience", "education", and "certificates" sections beautifully using HTML <p>, <ul>, and <li> tags for proper bullet points.
+        3. Do not miss any valid data.
+        
+        Text to process: {raw_text[:8000]}
+        """
+        response_text = generate_with_fallback(prompt, temp=0.2)
+    else:
+        # PATH B: STRICT URL PROMPT (Zero Fake Data)
+        prompt = f"""
+        You are a STRICT Data Parser. Output ONLY STRICT JSON.
+        Keys required: "name", "headline", "contact", "skills", "experience", "education", "certificates".
+
+        CRITICAL RULES FOR URL DATA:
+        1. ZERO HALLUCINATION: Extract EXACTLY what is provided. DO NOT invent fake companies, jobs, or skills.
+        2. If you see "NAME AND TITLE", put it in "name" and "headline".
+        3. If you see "SUMMARY", put it in "experience" wrapped in a <p> tag.
+        4. Leave ALL missing sections ("skills", "education", "certificates", "contact") as completely EMPTY STRINGS "". DO NOT write "No data found".
+        
+        Text to process: {raw_text[:2000]}
+        """
+        response_text = generate_with_fallback(prompt, temp=0.0)
+
     return clean_and_parse_json(response_text)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
-    # ATS Feature left 100% untouched and safe
     prompt = f"""
     Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
@@ -68,5 +85,5 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
     """
-    response_text = generate_with_fallback(prompt)
+    response_text = generate_with_fallback(prompt, temp=0.2)
     return clean_and_parse_json(response_text)
