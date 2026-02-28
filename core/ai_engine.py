@@ -24,8 +24,8 @@ def generate_with_fallback(prompt, temp=0.2):
         except Exception as groq_e:
             raise Exception("API Error: Both engines failed.")
 
-def clean_and_parse_json(response_text):
-    """Bulletproof JSON parser with Data Type Sanitizer to prevent UI crashes"""
+def clean_and_parse_json(response_text, is_analysis=False):
+    """Smart Parser: Fixes data types so Streamlit never crashes or prints single letters!"""
     try:
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}')
@@ -34,25 +34,32 @@ def clean_and_parse_json(response_text):
         else:
             parsed_data = json.loads(response_text)
             
-        # 🛡️ THE FIX: Ensure 'skills' is ALWAYS a string so cv_styles.py doesn't crash!
-        if isinstance(parsed_data.get("skills"), list):
-            parsed_data["skills"] = ", ".join(str(x) for x in parsed_data["skills"])
-        elif not parsed_data.get("skills") or not isinstance(parsed_data.get("skills"), str):
-            parsed_data["skills"] = ""
-            
-        # Force string type for other sections just in case
-        for key in ["experience", "education", "certificates"]:
-            if parsed_data.get(key) is None:
-                parsed_data[key] = ""
-            elif isinstance(parsed_data.get(key), list):
-                parsed_data[key] = "".join(str(x) for x in parsed_data[key])
+        if is_analysis:
+            # 🛡️ FIX FOR ATS REPORT (Stops the T, h, e, c... bug)
+            if "analysis_report" in parsed_data:
+                if isinstance(parsed_data["analysis_report"], str):
+                    parsed_data["analysis_report"] = [parsed_data["analysis_report"]]
+            return parsed_data
+        else:
+            # 🛡️ FIX FOR CV STYLES (Stops the split(',') crash)
+            if isinstance(parsed_data.get("skills"), list):
+                parsed_data["skills"] = ", ".join(str(x) for x in parsed_data["skills"])
+            elif not parsed_data.get("skills"):
+                parsed_data["skills"] = ""
                 
-        return parsed_data
+            for key in ["experience", "education", "certificates"]:
+                if parsed_data.get(key) is None:
+                    parsed_data[key] = ""
+                elif isinstance(parsed_data.get(key), list):
+                    parsed_data[key] = "".join(str(x) for x in parsed_data[key])
+                    
+            return parsed_data
     except Exception as e:
-        return {"name": "Data Error", "headline": "", "contact": "", "skills": "", "experience": "<p>Error parsing data.</p>", "education": "", "certificates": ""}
+        if is_analysis:
+            return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": ["Analysis generation failed. Please try again."]}
+        return {"name": "Data Error", "headline": "", "contact": "", "skills": "", "experience": "", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
-    # Logic: Isolate PDF behavior (Long Text) from URL behavior (Short Text)
     is_pdf = len(raw_text) > 1000
 
     if is_pdf:
@@ -62,8 +69,7 @@ def extract_base_cv(raw_text):
 
         CRITICAL RULES FOR PDF TEXT:
         1. Extract ALL details perfectly (jobs, education, projects).
-        2. Format the "experience", "education", and "certificates" sections beautifully using HTML <p>, <ul>, and <li> tags.
-        3. Do not miss any valid data.
+        2. Format the "experience", "education", and "certificates" beautifully using HTML <p>, <ul>, and <li> tags.
         
         Text to process: {raw_text[:8000]}
         """
@@ -74,30 +80,29 @@ def extract_base_cv(raw_text):
         Keys required: "name", "headline", "contact", "skills" (comma separated string), "experience", "education", "certificates".
 
         CRITICAL RULES FOR URL DATA:
-        1. ZERO HALLUCINATION: Extract EXACTLY what is provided. DO NOT invent fake companies, jobs, or skills.
-        2. If you see "NAME AND TITLE", put it in "name" and "headline".
-        3. If you see "SUMMARY", put it in "experience" wrapped in a <p> tag.
-        4. Leave ALL missing sections ("skills", "education", "certificates", "contact") as completely EMPTY STRINGS "". DO NOT write "No data found".
+        1. ZERO HALLUCINATION. DO NOT invent fake companies, jobs, or skills.
+        2. Extract exactly what is provided in the text.
+        3. Leave ALL missing sections as completely EMPTY STRINGS "". DO NOT write "No data found".
         
         Text to process: {raw_text[:2000]}
         """
         response_text = generate_with_fallback(prompt, temp=0.0)
 
-    return clean_and_parse_json(response_text)
+    return clean_and_parse_json(response_text, is_analysis=False)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
     prompt = f"""
     Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills ONLY. DO NOT add fake experience.
+    3. Create "tailored_cv": Add missing keywords to skills. DO NOT add fake experience.
     4. Calculate "new_ats_score" (0-100).
-    5. Write an "analysis_report".
+    5. Write an "analysis_report" as an ARRAY OF STRINGS (e.g., ["Point 1", "Point 2"]).
 
-    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
+    Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report" (MUST BE A LIST)
     
     BASE RESUME JSON: {json.dumps(base_cv_json)}
     JD: {jd_text[:8000]}
     """
     response_text = generate_with_fallback(prompt, temp=0.2)
-    return clean_and_parse_json(response_text)
+    return clean_and_parse_json(response_text, is_analysis=True)
