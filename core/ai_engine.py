@@ -13,16 +13,21 @@ def call_groq(prompt, temp=0.2):
     return response.choices[0].message.content
 
 def generate_with_fallback(prompt, temp=0.2):
+    gemini_error = None
+    groq_error = None
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=temp))
         return response.text
     except Exception as e:
-        try:
-            return call_groq(prompt, temp)
-        except Exception as groq_e:
-            raise Exception("API Error: Both engines failed.")
+        gemini_error = str(e)
+    try:
+        return call_groq(prompt, temp)
+    except Exception as groq_e:
+        groq_error = str(groq_e)
+    # Both failed - raise with real error details visible in logs
+    raise Exception(f"API Error: Gemini failed [{gemini_error}], Groq failed [{groq_error}]")
 
 def _convert_to_html(value):
     """Converts any value type into a safe HTML string for rendering."""
