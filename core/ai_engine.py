@@ -51,7 +51,14 @@ def clean_and_parse_json(response_text, is_analysis=False):
                 if parsed_data.get(key) is None:
                     parsed_data[key] = ""
                 elif isinstance(parsed_data.get(key), list):
-                    parsed_data[key] = "".join(str(x) for x in parsed_data[key])
+                    html_parts = []
+                    for item in parsed_data[key]:
+                        if isinstance(item, dict):
+                            # Convert dict keys into basic HTML if the AI hallucinated an object
+                            html_parts.append("<div style='margin-bottom:15px;'>" + "<br>".join([f"<b>{str(k).title()}:</b> {str(v)}" for k, v in item.items()]) + "</div>")
+                        else:
+                            html_parts.append(f"<p>{str(item)}</p>")
+                    parsed_data[key] = "".join(html_parts)
             return parsed_data
     except Exception as e:
         if is_analysis:
@@ -66,7 +73,7 @@ def extract_base_cv(raw_text):
     RULES:
     1. Extract whatever information is available in the text.
     2. Do NOT invent fake companies like "XYZ Corp". Use generic professional terms if needed based on their headline/summary.
-    3. Format the text beautifully using HTML <p>, <ul>, and <li> tags for the UI.
+    3. The values for "experience", "education", and "certificates" MUST BE A SINGLE MULTI-LINE STRING containing beautiful HTML <p>, <ul>, and <li> tags. Do NOT output arrays or nested JSON objects for these fields.
     4. If a section is missing (e.g. from limited URL scraping), intelligently infer realistic professional placeholders based on their headline so the CV template renders fully and beautifully.
 
     Text: {raw_text[:8000]}
@@ -81,6 +88,7 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     2. Identify 3-5 "missing_keywords" from JD.
     3. Create "tailored_cv": Add missing keywords to skills. Rephrase experience to align with JD, but DO NOT ADD FAKE COMPANIES OR JOBS.
     **CRITICAL**: The "tailored_cv" JSON object MUST contain ALL original keys from the base resume: "name", "headline", "contact", "education", "certificates". Do not lose the candidate's name or other factual info!
+    **CRITICAL 2**: The values for "experience", "education", and "certificates" inside "tailored_cv" MUST BE A SINGLE HTML STRING (using <p>, <ul>, <li>). Do NOT output arrays or objects!
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report" as an ARRAY OF STRINGS (e.g., ["Added Python.", "Improved format."]).
 
