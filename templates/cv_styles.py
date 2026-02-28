@@ -4,16 +4,21 @@ def render_cv(template_name, data):
     contact = data.get("contact", "Not Provided")
     skills = data.get("skills", "Communication")
     experience = data.get("experience", "<p>Experience details missing.</p>")
-    # Nayi keys add ki hain
     education = data.get("education", "")
     certificates = data.get("certificates", "")
 
-    # Conditional HTML: Agar education/certificates khali hain toh heading nahi aayegi
-    edu_html = f'<h2 style="color: inherit; font-size: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 30px; text-transform: uppercase;">Education</h2><div style="font-size: 14px; line-height: 1.6;">{education}</div>' if education and len(education) > 5 else ''
-    cert_html = f'<h2 style="color: inherit; font-size: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 30px; text-transform: uppercase;">Certifications</h2><div style="font-size: 14px; line-height: 1.6;">{certificates}</div>' if certificates and len(certificates) > 5 else ''
+    # Base HTML for Edu & Certs (Will be styled per template below)
+    edu_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Education</h2><div style="font-size: 14px; line-height: 1.6;">{education}</div>' if education and len(education) > 5 else ''
+    cert_html = f'<h2 style="margin-top: 30px; margin-bottom: 10px;">Certifications</h2><div style="font-size: 14px; line-height: 1.6;">{certificates}</div>' if certificates and len(certificates) > 5 else ''
 
+    # ==========================================
+    # 1. Executive Blue (Premium)
+    # ==========================================
     if template_name == "Executive Blue (Premium)":
         skills_html = "".join([f'<div style="background:rgba(255,255,255,0.2); padding:6px 12px; margin:4px; border-radius:4px; font-size:13px; display:inline-block;">{s.strip()}</div>' for s in skills.split(',') if s.strip()])
+        e_html = edu_html.replace('<h2', '<h2 style="color: #1e3a8a; font-size: 22px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; text-transform: uppercase;"')
+        c_html = cert_html.replace('<h2', '<h2 style="color: #1e3a8a; font-size: 22px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; text-transform: uppercase;"')
+        
         return f"""
         <html><body style="font-family: 'Segoe UI', Tahoma, sans-serif; background: #e9ecef; margin: 0; padding: 20px;">
             <div style="max-width: 850px; margin: auto; background: white; display: flex; min-height: 1050px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
@@ -28,15 +33,21 @@ def render_cv(template_name, data):
                 <div style="width: 65%; padding: 40px 35px; color: #334155;">
                     <h2 style="color: #1e3a8a; font-size: 22px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; text-transform: uppercase;">Experience & Projects</h2>
                     <div style="font-size: 14px; line-height: 1.8;">{experience}</div>
-                    {edu_html.replace('color: inherit', 'color: #1e3a8a')}
-                    {cert_html.replace('color: inherit', 'color: #1e3a8a')}
+                    {e_html}
+                    {c_html}
                 </div>
             </div>
         </body></html>
         """
 
+    # ==========================================
+    # 2. Modern Accent (Clean)
+    # ==========================================
     elif template_name == "Modern Accent (Clean)":
         skills_html = "".join([f'<span style="display:inline-block; border: 1px solid #14b8a6; color: #14b8a6; padding: 4px 10px; margin: 4px 6px 4px 0; border-radius: 20px; font-size: 12px; font-weight: 600;">{s.strip()}</span>' for s in skills.split(',') if s.strip()])
+        e_html = edu_html.replace('<h2', '<h2 style="color: #0f172a; font-size: 18px; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;"')
+        c_html = cert_html.replace('<h2', '<h2 style="color: #0f172a; font-size: 18px; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;"')
+        
         return f"""
         <html><body style="font-family: 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 20px;">
             <div style="max-width: 850px; margin: auto; background: white; min-height: 1050px; border-top: 8px solid #14b8a6; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -50,15 +61,21 @@ def render_cv(template_name, data):
                     <div style="margin-bottom: 30px;">{skills_html}</div>
                     <h2 style="color: #0f172a; font-size: 18px; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">Experience</h2>
                     <div style="font-size: 14px; line-height: 1.7;">{experience}</div>
-                    {edu_html.replace('font-size: 20px', 'font-size: 18px').replace('color: inherit', 'color: #0f172a')}
-                    {cert_html.replace('font-size: 20px', 'font-size: 18px').replace('color: inherit', 'color: #0f172a')}
+                    {e_html}
+                    {c_html}
                 </div>
             </div>
         </body></html>
         """
 
+    # ==========================================
+    # 3. Classic Corporate
+    # ==========================================
     elif template_name == "Classic Corporate":
         skills_bullet = "".join([f'<li style="margin-bottom: 8px;">{s.strip()}</li>' for s in skills.split(',') if s.strip()])
+        e_html = edu_html.replace('<h2', '<h2 style="font-size: 18px; text-transform: uppercase; border-bottom: 1px solid #111;"')
+        c_html = cert_html.replace('<h2', '<h2 style="font-size: 18px; text-transform: uppercase; border-bottom: 1px solid #111;"')
+        
         return f"""
         <html><body style="font-family: 'Georgia', serif; background: #fff; margin: 0; padding: 40px; color: #111;">
             <div style="max-width: 800px; margin: auto;">
@@ -68,14 +85,47 @@ def render_cv(template_name, data):
                 <ul style="display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 14px;">{skills_bullet}</ul>
                 <h2 style="font-size: 18px; text-transform: uppercase; border-bottom: 1px solid #111; margin-top: 30px;">Professional Experience</h2>
                 <div style="font-size: 14px; line-height: 1.6;">{experience}</div>
-                {edu_html.replace('font-size: 20px', 'font-size: 18px').replace('border-bottom: 2px solid #e2e8f0', 'border-bottom: 1px solid #111')}
-                {cert_html.replace('font-size: 20px', 'font-size: 18px').replace('border-bottom: 2px solid #e2e8f0', 'border-bottom: 1px solid #111')}
+                {e_html}
+                {c_html}
             </div>
         </body></html>
         """
+
+    # ==========================================
+    # 4. Modern Sidebar (Original)
+    # ==========================================
+    elif template_name == "Modern Sidebar (Original)":
+        skills_html = "".join([f'<span style="display: inline-block; background: rgba(255,255,255,0.1); padding: 5px 10px; margin: 5px; border-radius: 3px; font-size: 13px; border: 1px solid #4CAF50;">{s.strip()}</span>' for s in skills.split(',') if s.strip()])
+        e_html = edu_html.replace('<h2', '<h2 style="color: #2A3B4C; border-bottom: 2px solid #ddd; padding-bottom: 5px; text-transform: uppercase; font-size: 22px;"')
+        c_html = cert_html.replace('<h2', '<h2 style="color: #2A3B4C; border-bottom: 2px solid #ddd; padding-bottom: 5px; text-transform: uppercase; font-size: 22px;"')
         
+        return f"""
+        <html><body style="font-family: 'Segoe UI', sans-serif; background: #f4f4f9; margin: 0; padding: 20px;">
+            <div style="max-width: 850px; margin: auto; background: white; display: flex; min-height: 1050px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                <div style="width: 35%; background: #2A3B4C; color: white; padding: 30px 20px;">
+                    <h1 style="border-bottom: 2px solid #4CAF50; padding-bottom: 10px; text-transform: uppercase; font-size: 28px; margin-top:0;">{name}</h1>
+                    <p><i>{headline}</i></p>
+                    <h3 style="color: #4CAF50; text-transform: uppercase; margin-top:30px;">Contact</h3><p>📧 {contact}</p>
+                    <h3 style="color: #4CAF50; text-transform: uppercase; margin-top:30px;">Top Skills</h3><div>{skills_html}</div>
+                </div>
+                <div style="width: 65%; padding: 40px 30px; color: #333;">
+                    <h2 style="color: #2A3B4C; border-bottom: 2px solid #ddd; padding-bottom: 5px; text-transform: uppercase; font-size: 22px;">Professional Details</h2>
+                    <div>{experience}</div>
+                    {e_html}
+                    {c_html}
+                </div>
+            </div>
+        </body></html>
+        """
+
+    # ==========================================
+    # 5. Minimalist Tech (Original)
+    # ==========================================
     else: 
         skills_html = "".join([f'<span style="display: inline-block; background: #f0f0f0; color: #333; padding: 6px 12px; margin: 4px; border-radius: 20px; font-size: 13px; font-weight: 600;">{s.strip()}</span>' for s in skills.split(',') if s.strip()])
+        e_html = edu_html.replace('<h2', '<h2 style="font-size: 20px; color: #000; text-transform: uppercase; letter-spacing: 1px;"')
+        c_html = cert_html.replace('<h2', '<h2 style="font-size: 20px; color: #000; text-transform: uppercase; letter-spacing: 1px;"')
+        
         return f"""
         <html><body style="font-family: 'Helvetica Neue', sans-serif; background: #fff; margin: 0; padding: 40px; color: #333;">
             <div style="max-width: 800px; margin: auto;">
@@ -84,8 +134,8 @@ def render_cv(template_name, data):
                 <p><strong>Contact:</strong> {contact}</p>
                 <h2 style="font-size: 20px; color: #000; margin-top: 40px; text-transform: uppercase; letter-spacing: 1px;">Skills</h2><div>{skills_html}</div>
                 <h2 style="font-size: 20px; color: #000; margin-top: 40px; text-transform: uppercase; letter-spacing: 1px;">Experience & Projects</h2><div>{experience}</div>
-                {edu_html.replace('color: inherit', 'color: #000')}
-                {cert_html.replace('color: inherit', 'color: #000')}
+                {e_html}
+                {c_html}
             </div>
         </body></html>
         """
