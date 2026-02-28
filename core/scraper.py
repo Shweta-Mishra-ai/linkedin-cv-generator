@@ -10,24 +10,26 @@ def extract_pdf_text(uploaded_file):
 
 def scrape_url_text(url):
     try:
-        # Using Googlebot header to fetch public data
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
+        # Original simple request from the morning
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         response = requests.get(url, headers=headers, timeout=8)
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        title = soup.find("meta", property="og:title")
-        desc = soup.find("meta", property="og:description")
+        meta_title = soup.find("meta", property="og:title")
+        meta_desc = soup.find("meta", property="og:description")
 
         data = ""
-        if title and title.get("content"):
-            data += f"REAL NAME AND TITLE: {title.get('content')}\n"
-        if desc and desc.get("content"):
-            data += f"REAL SUMMARY: {desc.get('content')}\n"
+        if meta_title:
+            data += f"Name/Title: {meta_title.get('content')}\n"
+        if meta_desc:
+            data += f"Summary: {meta_desc.get('content')}\n"
 
-        if len(data) > 10 and "Sign In" not in data:
-            return data
-        else:
-            return get_linkedin_fallback_data(url)
+        # Also grabbing whatever body text is available like we did originally
+        for script in soup(["script", "style"]):
+            script.decompose()
+        page_text = soup.get_text(separator=' ', strip=True)
+
+        return data + "\n" + page_text[:3000]
     except:
         return get_linkedin_fallback_data(url)
 
@@ -36,6 +38,6 @@ def get_linkedin_fallback_data(url):
         path = urllib.parse.urlparse(url).path
         slug = path.strip("/").split("/")[-1]
         clean_name = re.sub(r'[^a-zA-Z\s]', ' ', slug.replace('-', ' ')).strip().title()
-        return f"REAL NAME AND TITLE: {clean_name} - Professional\nREAL SUMMARY: Experienced professional. Detailed history is currently protected by LinkedIn privacy settings. Please review the uploaded PDF for full technical experience."
+        return f"Name: {clean_name}\nHeadline: Professional\nSummary: Profile data is limited."
     except:
-        return "REAL NAME AND TITLE: Professional Candidate\nREAL SUMMARY: Profile protected by privacy settings."
+        return "Name: Candidate"
