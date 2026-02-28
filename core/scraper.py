@@ -9,42 +9,33 @@ def extract_pdf_text(uploaded_file):
     return "".join(page.extract_text() + "\n" for page in pdf_reader.pages)
 
 def scrape_url_text(url):
+    """Subah wala simple and effective URL fetcher"""
     try:
-        # Posing as Googlebot to try and get public Meta Tags
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"}
-        response = requests.get(url, headers=headers, timeout=5)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        response = requests.get(url, headers=headers, timeout=8)
         soup = BeautifulSoup(response.text, 'html.parser')
 
         meta_title = soup.find("meta", property="og:title")
         meta_desc = soup.find("meta", property="og:description")
 
+        extracted_data = ""
         if meta_title and meta_title.get("content"):
-            title = meta_title.get("content").split('-')[0].strip()
-            desc = meta_desc.get("content", "") if meta_desc else ""
-            if "Sign In" not in title and "LinkedIn" not in title:
-                return f"REAL NAME: {title}\nREAL HEADLINE/SUMMARY: {desc}\nNOTE: Build a factual, skills-based professional resume based on this summary."
+            extracted_data += f"REAL NAME AND TITLE: {meta_title.get('content')}\n"
+        if meta_desc and meta_desc.get("content"):
+            extracted_data += f"REAL SUMMARY: {meta_desc.get('content')}\n"
 
-        return get_linkedin_fallback_data(url)
+        if len(extracted_data) > 10:
+            return f"--- PUBLIC LINKEDIN DATA ---\n{extracted_data}"
+        else:
+            return get_linkedin_fallback_data(url)
     except:
         return get_linkedin_fallback_data(url)
 
 def get_linkedin_fallback_data(url):
-    # If blocked, smartly extract Name and Profession from the URL slug itself!
     try:
         path = urllib.parse.urlparse(url).path
         slug = path.strip("/").split("/")[-1]
         clean_name = re.sub(r'[^a-zA-Z\s]', ' ', slug.replace('-', ' ')).strip().title()
-        
-        # Infer profession from URL
-        profession = "Professional"
-        slug_lower = slug.lower()
-        if "ai" in slug_lower or "data" in slug_lower:
-            profession = "AI & Data Science"
-        elif "dev" in slug_lower or "software" in slug_lower or "tech" in slug_lower:
-            profession = "Software Engineering"
-        elif "hr" in slug_lower or "manage" in slug_lower:
-            profession = "Management"
-            
-        return f"REAL NAME: {clean_name}\nREAL HEADLINE: {profession} Expert\nNOTE: LinkedIn blocked full access. Build a detailed, factual, skills-based resume for this profession."
+        return f"REAL NAME: {clean_name}\nNOTE: Full data blocked by LinkedIn."
     except:
-        return "REAL NAME: Professional Candidate\nREAL HEADLINE: Industry Professional"
+        return "REAL NAME: Candidate"
