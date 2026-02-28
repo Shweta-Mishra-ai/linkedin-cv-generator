@@ -9,7 +9,7 @@ def extract_pdf_text(uploaded_file):
 
 def scrape_url_text(url):
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
         for script in soup(["script", "style"]):
@@ -23,13 +23,9 @@ def scrape_url_text(url):
         return get_linkedin_fallback_data(url)
 
 def get_linkedin_fallback_data(url):
-    # Smartly extract name from URL (e.g., /in/shweta-mishra-ai -> Shweta Mishra Ai)
     try:
         path = urllib.parse.urlparse(url).path
-        slug = path.strip("/").split("/")[-1]
-        name = slug.replace("-", " ").title()
-        if not name or "Linkedin" in name:
-            name = "LinkedIn Member"
-        return f"Name: {name}\nHeadline: Professional seeking new opportunities.\nExperience: Experienced professional with a strong background in industry-standard practices. Skills: Leadership, Communication, Problem Solving, Technical Skills."
+        name = path.strip("/").split("/")[-1].replace("-", " ").title()
+        return f"Name: {name}\nNotice: LinkedIn blocked the data extraction for this URL. Please use the PDF Upload method for real data."
     except:
-        return "Name: Professional User\nHeadline: Experienced Candidate"
+        return "Name: Private User\nNotice: Please use PDF upload."
