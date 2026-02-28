@@ -4,38 +4,57 @@ import json
 import streamlit as st
 
 def call_groq(prompt):
-    """Fallback function using Groq API"""
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt}],
-        model="llama3-70b-8192", # Fast and extremely smart model
-        temperature=0.3,
-    )
-    return response.choices[0].message.content
+    """Secondary API: Groq (Ultra-Fast Llama 3 Model)"""
+    try:
+        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama3-70b-8192", # Groq's smartest and fastest free model
+            temperature=0.3,
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        raise Exception(f"Groq API Error: {str(e)}")
 
 def generate_with_fallback(prompt):
-    """Tries Gemini first. If Quota Exceeded, seamlessly falls back to Groq."""
+    """
+    MASTER LOGIC: 
+    1. Try Gemini first (Smart Model Picker).
+    2. If Gemini throws ANY error (404, 429 Limit, etc.), instantly switch to Groq.
+    """
     try:
-        # 1. First Priority: Gemini
+        # Step 1: Attempt Gemini
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Smartly pick a model that exists on this specific API key to avoid 404
+        valid_model = 'gemini-1.0-pro' 
+        try:
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            for name in available_models:
+                if '1.5-flash' in name:
+                    valid_model = name
+                    break
+            # If 1.5-flash isn't available, pick anything that isn't the 20-limit model
+            if valid_model not in available_models and available_models:
+                for name in available_models:
+                    if 'pro' in name or ('flash' in name and '2.5' not in name):
+                        valid_model = name
+                        break
+        except:
+            pass # Ignore list_models error and try fallback
+
+        model = genai.GenerativeModel(valid_model)
         response = model.generate_content(prompt)
         return response.text
+        
     except Exception as e:
-        error_msg = str(e).lower()
-        # 2. Fallback: If Gemini hits limit (429/quota), switch to Groq!
-        if "429" in error_msg or "quota" in error_msg or "resourceexhausted" in error_msg:
-            print("Gemini limit reached. Switching to Groq...") # Logs for you
-            try:
-                return call_groq(prompt)
-            except Exception as groq_e:
-                raise Exception(f"Both AI engines failed. Groq Error: {str(groq_e)}")
-        else:
-            raise e # Raise if it's some other non-quota error
+        # Step 2: Gemini Failed (Quota or 404). Activating Groq!
+        print(f"Gemini Error ({str(e)}). Switching to Groq API...")
+        return call_groq(prompt)
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are an expert resume builder. Extract data into STRICT JSON. No markdown formatting or tags like ```json.
+    You are an expert resume builder. Extract data into STRICT JSON. No markdown formatting or ```json blocks.
     Keys required: "name", "headline", "contact", "skills" (comma separated), "experience", "education", "certificates".
     Format "experience", "education", and "certificates" with basic HTML <p>, <ul>, <li>.
     
@@ -60,9 +79,9 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     2. Identify missing keywords.
     3. Calculate expected NEW ATS score.
     4. Provide an 'analysis_report' (list of 3-4 strings) explaining why the score improved.
-    5. Create "tailored_cv" by incorporating missing keywords.
+    5. Create "tailored_cv" by incorporating missing keywords naturally.
     
-    Return STRICT JSON. No markdown formatting.
+    Return STRICT JSON. No markdown formatting or ```json blocks.
     Keys required:
     "old_ats_score": integer,
     "new_ats_score": integer,
