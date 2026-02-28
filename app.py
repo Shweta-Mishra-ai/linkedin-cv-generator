@@ -12,10 +12,17 @@ st.markdown("Extract your profile, analyze it against a JD, and generate a tailo
 
 # --- SIDEBAR ---
 st.sidebar.title("🎨 Formatting Options")
-selected_template = st.sidebar.selectbox("Choose CV Template:", ["Executive Blue (Premium)", "Modern Accent (Clean)", "Classic Corporate"])
+template_options = [
+    "Executive Blue (Premium)", 
+    "Modern Accent (Clean)", 
+    "Classic Corporate",
+    "Modern Sidebar (Original)",
+    "Minimalist Tech (Original)"
+]
+selected_template = st.sidebar.selectbox("Choose CV Template:", template_options)
 
 # --- TABS ---
-tab1, tab2 = st.tabs(["📄 Step 1: Base Profile & Preview", "🎯 Step 2: ATS Tailoring (Optional)"])
+tab1, tab2 = st.tabs(["📄 Step 1: Base Profile & Preview", "🎯 Step 2: ATS Tailoring & Analysis"])
 
 if "base_cv_data" not in st.session_state:
     st.session_state.base_cv_data = None
@@ -28,39 +35,26 @@ with tab1:
         uploaded_file = st.file_uploader("Upload Profile PDF", type=['pdf'])
         if st.button("Extract Base CV", type="primary") and uploaded_file:
             with st.spinner("Analyzing PDF..."):
-                try:
-                    raw_text = extract_pdf_text(uploaded_file)
-                    st.session_state.base_cv_data = extract_base_cv(raw_text)
-                    st.success("✅ Profile Extracted Successfully!")
-                except Exception as e:
-                    st.error(f"Error: {e}. Please check your API Key.")
+                raw_text = extract_pdf_text(uploaded_file)
+                st.session_state.base_cv_data = extract_base_cv(raw_text)
+                st.success("✅ Profile Extracted Successfully!")
                     
     elif input_method == "🔗 Scrape via LinkedIn URL":
         linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
-        st.caption("Note: LinkedIn blocks direct scraping. The app will smartly extract your name from the URL if blocked.")
+        st.caption("Note: LinkedIn blocks direct scraping. The AI will intelligently build a profile based on public metadata.")
         if st.button("Extract Base CV", type="primary") and linkedin_url:
-            with st.spinner("Scraping & intelligently extracting data..."):
-                try:
-                    raw_text = scrape_url_text(linkedin_url)
-                    st.session_state.base_cv_data = extract_base_cv(raw_text)
-                    st.success("✅ Profile Extracted Successfully!")
-                except Exception as e:
-                    st.error(f"Error: {e}. Please check your API Key.")
+            with st.spinner("Intelligently extracting & building profile..."):
+                raw_text = scrape_url_text(linkedin_url)
+                st.session_state.base_cv_data = extract_base_cv(raw_text)
+                st.success("✅ Profile Extracted Successfully!")
 
-    # 🟢 FIX: SHOW PREVIEW & DOWNLOAD DIRECTLY IN STEP 1
     if st.session_state.base_cv_data:
         st.markdown("---")
         st.markdown("### 👀 Base CV Preview")
-        st.info(f"Currently viewing: **{selected_template}**. Change the template from the sidebar on the left! To optimize this for a specific job description, go to **Step 2**.")
-        
         base_html = render_cv(selected_template, st.session_state.base_cv_data)
-        
-        # Render HTML directly in Streamlit
         components.html(base_html, height=600, scrolling=True)
         
         st.markdown("---")
-        
-        # DOWNLOAD BUTTON FOR BASE CV
         b64_base = base64.b64encode(base_html.encode()).decode()
         href_base = f'<a href="data:text/html;base64,{b64_base}" download="Base_CV.html" style="display:inline-block; padding:12px 24px; background-color:#1e3a8a; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 Download Base CV</a>'
         st.markdown(href_base, unsafe_allow_html=True)
@@ -74,32 +68,36 @@ with tab2:
         
         if st.button("Analyze, Tailor & Preview CV", type="primary") and jd_input:
             with st.spinner("AI is analyzing ATS score and crafting your perfect CV..."):
-                try:
-                    analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
-                    
-                    st.markdown("### 📈 ATS Score Improvement")
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric(label="Original Score", value=f"{analysis_result['old_ats_score']}%")
-                    with col2:
-                        st.metric(label="New Tailored Score", value=f"{analysis_result['new_ats_score']}%", delta=f"+{analysis_result['new_ats_score'] - analysis_result['old_ats_score']}%")
-                    with col3:
-                        st.write("**🚨 Added Keywords:**")
-                        st.write(", ".join(analysis_result['missing_keywords']))
-                    
-                    st.markdown("---")
-                    
-                    st.markdown("### 👀 Live Tailored CV Preview")
-                    st.info(f"Currently viewing: **{selected_template}**. You can change the template from the sidebar.")
-                    
-                    tailored_html = render_cv(selected_template, analysis_result['tailored_cv'])
-                    components.html(tailored_html, height=600, scrolling=True)
-                    
-                    st.markdown("---")
-                    
-                    b64_tailored = base64.b64encode(tailored_html.encode()).decode()
-                    href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#1e3a8a; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 Download Tailored CV</a>'
-                    st.markdown(href_tailored, unsafe_allow_html=True)
-                    
-                except Exception as e:
-                    st.error(f"Error during analysis: {e}")
+                analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
+                
+                # 1. SHOW THE SCORE
+                st.markdown("### 📈 ATS Score Improvement")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(label="Original Score", value=f"{analysis_result['old_ats_score']}%")
+                with col2:
+                    st.metric(label="New Tailored Score", value=f"{analysis_result['new_ats_score']}%", delta=f"+{analysis_result['new_ats_score'] - analysis_result['old_ats_score']}%")
+                with col3:
+                    st.write("**🚨 Added Keywords:**")
+                    st.write(", ".join(analysis_result.get('missing_keywords', [])))
+                
+                st.markdown("---")
+                
+                # 2. SHOW ANALYSIS REPORT
+                st.markdown("### 📊 Detailed Analysis & Improvement Report")
+                for point in analysis_result.get('analysis_report', []):
+                    st.markdown(f"- {point}")
+                
+                st.markdown("---")
+                
+                # 3. SHOW THE LIVE PREVIEW
+                st.markdown("### 👀 Live Tailored CV Preview")
+                tailored_html = render_cv(selected_template, analysis_result['tailored_cv'])
+                components.html(tailored_html, height=600, scrolling=True)
+                
+                st.markdown("---")
+                
+                # 4. DOWNLOAD BUTTON
+                b64_tailored = base64.b64encode(tailored_html.encode()).decode()
+                href_tailored = f'<a href="data:text/html;base64,{b64_tailored}" download="Tailored_ATS_CV.html" style="display:inline-block; padding:12px 24px; background-color:#14b8a6; color:white; text-decoration:none; border-radius:5px; font-weight:bold; text-align:center; width:100%;">📥 I am Satisfied - Download My ATS-Optimized CV</a>'
+                st.markdown(href_tailored, unsafe_allow_html=True)
