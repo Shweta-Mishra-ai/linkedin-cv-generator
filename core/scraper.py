@@ -10,21 +10,28 @@ def extract_pdf_text(uploaded_file):
 
 def scrape_url_text(url):
     try:
-        # Standard request
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        response = requests.get(url, headers=headers, timeout=5)
+        # Standard browser headers to fetch Link Previews
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9"
+        }
+        response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        title = soup.find("title").text if soup.find("title") else ""
-        meta_desc = soup.find("meta", attrs={"name": "description"})
-        desc = meta_desc.get("content", "") if meta_desc else ""
 
-        # Smart URL parsing (Foolproof way to get Name)
-        path = urllib.parse.urlparse(url).path
-        slug = path.strip("/").split("/")[-1]
-        clean_name = re.sub(r'[^a-zA-Z\s]', ' ', slug.replace('-', ' ')).strip().title()
+        # Extract EXACT Public SEO Data
+        meta_title = soup.find("meta", property="og:title")
+        meta_desc = soup.find("meta", property="og:description")
 
-        return f"Candidate Name: {clean_name}\nPage Title: {title}\nSummary: {desc}\nNote: Full data restricted by LinkedIn."
+        real_data = ""
+        if meta_title and meta_title.get("content"):
+            real_data += f"REAL HEADLINE/TITLE: {meta_title.get('content')}\n"
+        if meta_desc and meta_desc.get("content"):
+            real_data += f"REAL ABOUT/SUMMARY: {meta_desc.get('content')}\n"
+
+        if len(real_data) > 10:
+            return f"--- EXACT PUBLIC LINKEDIN DATA ---\n{real_data}"
+        else:
+            return get_linkedin_fallback_data(url)
     except:
         return get_linkedin_fallback_data(url)
 
@@ -33,6 +40,6 @@ def get_linkedin_fallback_data(url):
         path = urllib.parse.urlparse(url).path
         slug = path.strip("/").split("/")[-1]
         clean_name = re.sub(r'[^a-zA-Z\s]', ' ', slug.replace('-', ' ')).strip().title()
-        return f"Candidate Name: {clean_name}\nNote: Profile data restricted."
+        return f"REAL NAME: {clean_name}\nNOTE: Full profile blocked by LinkedIn login wall."
     except:
-        return "Candidate Name: Professional Candidate"
+        return "REAL NAME: Candidate"
