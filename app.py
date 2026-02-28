@@ -49,13 +49,10 @@ with tab1:
         linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
         
         if st.button("Extract Data & Generate CV", type="primary") and linkedin_url:
-            with st.spinner("Fetching data and generating CV..."):
+            with st.spinner("Fetching data and generating your CV..."):
                 raw_text = scrape_url_text(linkedin_url)
-                
-                # Use unified extraction logic that automatically handles limited URL data
-                st.session_state.base_cv_data = extract_base_cv(raw_text)
+                st.session_state.base_cv_data = extract_base_cv(raw_text, is_url=True)
                 st.session_state.analysis_result = None
-                
                 st.success("✅ Profile Data Extracted Successfully!")
 
     # BASE PREVIEW & DOWNLOAD

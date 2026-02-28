@@ -100,21 +100,44 @@ def clean_and_parse_json(response_text, is_analysis=False):
             return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": [f"Analysis failed: {str(e)}"]}
         return {"name": "Candidate", "headline": "Professional", "contact": "", "skills": "", "experience": f"<p>Data extraction error: {str(e)}</p>", "education": "", "certificates": ""}
 
-def extract_base_cv(raw_text):
-    prompt = f"""
-    You are an expert resume builder. Extract the data from the text and output ONLY a single valid JSON object.
-    Do NOT include markdown code blocks. Do NOT write any explanation. Just the raw JSON.
-    Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
+def extract_base_cv(raw_text, is_url=False):
+    if is_url:
+        # For URLs: LinkedIn blocks most data, so we use AI to generate professional content
+        prompt = f"""
+You are an Expert Resume Architect. Output ONLY a raw JSON object. No markdown, no explanation.
+Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
 
-    RULES:
-    1. "skills" must be a comma-separated string (e.g. "Python, SQL, Leadership").
-    2. "experience", "education", "certificates" must each be a single HTML string using <p>, <ul>, <li> tags. Do NOT use nested JSON objects or arrays for these fields.
-    3. Extract all available information from the text.
-    4. If a section is missing, set it to an empty string "".
+The text is a limited scrape from a LinkedIn URL (usually only name/headline is available due to login wall).
+Your job: BUILD a complete professional CV based on whatever is in the text.
 
-    Text: {raw_text[:8000]}
-    """
-    response_text = generate_with_fallback(prompt, temp=0.2)
+INSTRUCTIONS:
+1. Extract the real name and headline from the text.
+2. "skills": Generate 10-15 relevant skills as a comma-separated string based on the headline.
+3. "experience": Generate 2-3 detailed, realistic job experiences as a SINGLE HTML string using <ul><li> tags. Match the profession. Use plausible company names (not "XYZ Corp").
+4. "education": Generate a relevant degree as a SINGLE HTML string (e.g. "<p>B.Tech in Computer Science - IIT Delhi (2018)</p>").
+5. "certificates": Generate 1-2 relevant industry certificates as a SINGLE HTML string.
+6. "contact": Use "<p>LinkedIn Profile | India</p>" as placeholder.
+
+Text: {raw_text[:4000]}
+"""
+    else:
+        # For PDFs: extract all the real data from the detailed CV text
+        prompt = f"""
+You are an expert resume parser. Output ONLY a raw JSON object. No markdown, no explanation.
+Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
+
+INSTRUCTIONS:
+1. Extract all available data from the text. Do not skip any information.
+2. "skills": Extract all skills as a comma-separated string.
+3. "experience": Format ALL work experience as a SINGLE HTML string using <p><b>Title at Company (Dates)</b></p><ul><li>Achievement</li></ul> structure.
+4. "education": Format ALL education as a SINGLE HTML string using <p> tags.
+5. "certificates": Format ALL certifications as a SINGLE HTML string using <p> tags.
+6. "contact": Extract email, LinkedIn, phone, location as a single string.
+7. If a section genuinely does not exist in the text, set it to "".
+
+Text: {raw_text[:8000]}
+"""
+    response_text = generate_with_fallback(prompt, temp=0.3)
     return clean_and_parse_json(response_text, is_analysis=False)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
