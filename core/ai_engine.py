@@ -8,7 +8,7 @@ def call_groq(prompt):
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
-        temperature=0.2, # Balanced temperature
+        temperature=0.2, 
     )
     return response.choices[0].message.content
 
@@ -33,27 +33,28 @@ def clean_and_parse_json(response_text):
             return json.loads(response_text[start_idx:end_idx+1])
         return json.loads(response_text)
     except Exception as e:
-        # Emergency fallback if AI goes completely crazy
-        return {"name": "Data Processing Error", "headline": "Please try again.", "contact": "", "skills": "", "experience": "<p>Error parsing data.</p>", "education": "", "certificates": ""}
+        return {"name": "Parse Error", "headline": "Try again", "contact": "", "skills": "", "experience": "<p>Error parsing data.</p>", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are an Expert ATS Resume Parser. Output ONLY STRICT JSON. Do not use markdown blocks like ```json.
+    You are an Expert ATS Resume Builder. Output ONLY STRICT JSON. Do not use markdown blocks like ```json.
     Keys required: "name", "headline", "contact", "skills" (comma separated), "experience", "education", "certificates".
 
     CRITICAL LOGIC BASED ON TEXT LENGTH:
     
-    SCENARIO 1: DETAILED TEXT (e.g., PDF Resume Upload)
-    If the text contains detailed history, jobs, and education:
-    - Intelligently extract EVERYTHING. 
-    - Fix messy formatting and organize it beautifully using HTML <p>, <ul>, <li> tags.
-    - Do not leave any valid data behind.
+    SCENARIO 1: DETAILED TEXT (PDF Resume Upload)
+    - If the text is long and contains detailed history, extract EVERYTHING accurately.
+    - Format beautifully using HTML <p>, <ul>, <li>. Do not hallucinate.
 
-    SCENARIO 2: SHORT TEXT (e.g., URL Scrape)
-    If the text is very short (just Name, Title, and basic summary):
-    - ZERO HALLUCINATION. Do NOT invent fake companies (like "XYZ Corp") or fake degrees.
-    - Map the real title and summary into the "headline" and "experience" fields.
-    - For completely missing sections (like education or certificates), return an EMPTY STRING "". Do not write "No data found".
+    SCENARIO 2: SHORT TEXT (URL Scrape / Fallback)
+    - If the text is short (just Name, Headline, and a note):
+    - DO NOT leave the CV empty. DO NOT write "Profile blocked".
+    - DO NOT invent fake company names (No "XYZ Corp").
+    - "headline": Use the provided headline/profession.
+    - "skills": Generate 8-12 highly relevant industry skills based on the headline.
+    - "experience": Write a strong professional summary paragraph. Then add a section like "<p><b>Core Expertise & Projects</b></p><ul><li>Successfully delivered projects and solutions in this domain.</li><li>Demonstrated strong analytical and technical abilities to drive results.</li></ul>". Keep it professional and factual to the industry.
+    - "education": "<p><b>Academic Background</b></p><ul><li>Degree in relevant technical/business field</li></ul>"
+    - "certificates": ""
 
     Text to process: {raw_text[:8000]}
     """
@@ -65,7 +66,7 @@ def analyze_and_tailor_cv(base_cv_json, jd_text):
     Act as an Expert ATS System. Output ONLY STRICT JSON. No markdown blocks.
     1. Calculate "old_ats_score" (0-100).
     2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills. Rephrase experience to align with JD, but DO NOT ADD FAKE COMPANIES OR JOBS.
+    3. Create "tailored_cv": Add missing keywords to skills. Rephrase experience to align with JD, but DO NOT ADD FAKE COMPANIES.
     4. Calculate "new_ats_score" (0-100).
     5. Write an "analysis_report".
 
