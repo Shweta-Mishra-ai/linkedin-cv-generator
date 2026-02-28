@@ -24,15 +24,48 @@ def generate_with_fallback(prompt, temp=0.2):
         except Exception as groq_e:
             raise Exception("API Error: Both engines failed.")
 
+def _convert_to_html(value):
+    """Converts any value type into a safe HTML string for rendering."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict):
+                # AI returned a list of dicts for experience - convert to HTML blocks
+                lines = []
+                for k, v in item.items():
+                    lines.append(f"<b>{str(k).replace('_', ' ').title()}:</b> {str(v)}")
+                parts.append("<div style='margin-bottom:15px;'>" + "<br>".join(lines) + "</div>")
+            else:
+                parts.append(f"<p>{str(item)}</p>")
+        return "".join(parts)
+    if isinstance(value, dict):
+        # AI returned a single dict instead of a string
+        lines = []
+        for k, v in value.items():
+            lines.append(f"<b>{str(k).replace('_', ' ').title()}:</b> {str(v)}")
+        return "<div>" + "<br>".join(lines) + "</div>"
+    return str(value)
+
 def clean_and_parse_json(response_text, is_analysis=False):
-    """Safe Parser (Untouched, keeps your app from crashing)"""
+    """Bulletproof JSON parser."""
     try:
-        start_idx = response_text.find('{')
-        end_idx = response_text.rfind('}')
+        # Strip markdown code blocks if present
+        clean = response_text.strip()
+        if clean.startswith("```"):
+            clean = clean[clean.find("{"):]  # strip ```json header
+        if clean.endswith("```"):
+            clean = clean[:clean.rfind("}") + 1]  # strip ``` footer
+
+        start_idx = clean.find('{')
+        end_idx = clean.rfind('}')
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            parsed_data = json.loads(response_text[start_idx:end_idx+1])
+            parsed_data = json.loads(clean[start_idx:end_idx+1])
         else:
-            parsed_data = json.loads(response_text)
+            parsed_data = json.loads(clean)
 
         if is_analysis:
             report = parsed_data.get("analysis_report", ["Analysis complete."])
@@ -40,41 +73,44 @@ def clean_and_parse_json(response_text, is_analysis=False):
                 parsed_data["analysis_report"] = [report]
             elif not isinstance(report, list):
                 parsed_data["analysis_report"] = ["Analysis generated."]
+            # Also normalize tailored_cv if present
+            tailored = parsed_data.get("tailored_cv", {})
+            if isinstance(tailored, dict):
+                for key in ["experience", "education", "certificates"]:
+                    if key in tailored:
+                        tailored[key] = _convert_to_html(tailored.get(key, ""))
+                if isinstance(tailored.get("skills"), list):
+                    tailored["skills"] = ", ".join(str(x) for x in tailored["skills"])
             return parsed_data
         else:
+            # Normalize skills to comma-separated string
             if isinstance(parsed_data.get("skills"), list):
                 parsed_data["skills"] = ", ".join(str(x) for x in parsed_data["skills"])
             elif not parsed_data.get("skills"):
                 parsed_data["skills"] = ""
 
+            # Normalize experience/education/certificates to HTML strings
             for key in ["experience", "education", "certificates"]:
-                if parsed_data.get(key) is None:
-                    parsed_data[key] = ""
-                elif isinstance(parsed_data.get(key), list):
-                    html_parts = []
-                    for item in parsed_data[key]:
-                        if isinstance(item, dict):
-                            # Convert dict keys into basic HTML if the AI hallucinated an object
-                            html_parts.append("<div style='margin-bottom:15px;'>" + "<br>".join([f"<b>{str(k).title()}:</b> {str(v)}" for k, v in item.items()]) + "</div>")
-                        else:
-                            html_parts.append(f"<p>{str(item)}</p>")
-                    parsed_data[key] = "".join(html_parts)
+                parsed_data[key] = _convert_to_html(parsed_data.get(key, ""))
+
             return parsed_data
+
     except Exception as e:
         if is_analysis:
-            return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": ["Analysis failed."]}
-        return {"name": "Candidate", "headline": "Professional", "contact": "", "skills": "", "experience": "Data extraction failed.", "education": "", "certificates": ""}
+            return {"old_ats_score": 0, "missing_keywords": [], "tailored_cv": {}, "new_ats_score": 0, "analysis_report": [f"Analysis failed: {str(e)}"]}
+        return {"name": "Candidate", "headline": "Professional", "contact": "", "skills": "", "experience": f"<p>Data extraction error: {str(e)}</p>", "education": "", "certificates": ""}
 
 def extract_base_cv(raw_text):
     prompt = f"""
-    You are an expert resume builder. Extract the data from the text into STRICT JSON format.
-    Keys required: "name", "headline", "contact", "skills" (comma separated string), "experience", "education", "certificates".
+    You are an expert resume builder. Extract the data from the text and output ONLY a single valid JSON object.
+    Do NOT include markdown code blocks. Do NOT write any explanation. Just the raw JSON.
+    Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
 
     RULES:
-    1. Extract whatever information is available in the text.
-    2. Do NOT invent fake companies like "XYZ Corp". Use generic professional terms if needed based on their headline/summary.
-    3. The values for "experience", "education", and "certificates" MUST BE A SINGLE MULTI-LINE STRING containing beautiful HTML <p>, <ul>, and <li> tags. Do NOT output arrays or nested JSON objects for these fields.
-    4. If a section is missing (e.g. from limited URL scraping), intelligently infer realistic professional placeholders based on their headline so the CV template renders fully and beautifully.
+    1. "skills" must be a comma-separated string (e.g. "Python, SQL, Leadership").
+    2. "experience", "education", "certificates" must each be a single HTML string using <p>, <ul>, <li> tags. Do NOT use nested JSON objects or arrays for these fields.
+    3. Extract all available information from the text.
+    4. If a section is missing, set it to an empty string "".
 
     Text: {raw_text[:8000]}
     """
@@ -83,14 +119,16 @@ def extract_base_cv(raw_text):
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
     prompt = f"""
-    Act as an Expert ATS System. Output ONLY STRICT JSON.
+    Act as an Expert ATS System. Output ONLY a single valid JSON object. No markdown blocks, no explanation.
     1. Calculate "old_ats_score" (0-100).
-    2. Identify 3-5 "missing_keywords" from JD.
-    3. Create "tailored_cv": Add missing keywords to skills. Rephrase experience to align with JD, but DO NOT ADD FAKE COMPANIES OR JOBS.
-    **CRITICAL**: The "tailored_cv" JSON object MUST contain ALL original keys from the base resume: "name", "headline", "contact", "education", "certificates". Do not lose the candidate's name or other factual info!
-    **CRITICAL 2**: The values for "experience", "education", and "certificates" inside "tailored_cv" MUST BE A SINGLE HTML STRING (using <p>, <ul>, <li>). Do NOT output arrays or objects!
+    2. Identify 3-5 "missing_keywords" as a JSON array of strings.
+    3. Create "tailored_cv": A JSON object with these keys: "name", "headline", "contact", "skills", "experience", "education", "certificates".
+       - Copy "name", "headline", "contact", "education", "certificates" directly from the base resume without changing them.
+       - Improve "skills" by adding the missing keywords.
+       - Improve "experience" HTML to better match the JD. Do NOT invent fake companies.
+       - "experience", "education", "certificates" must be single HTML strings, not JSON arrays or objects.
     4. Calculate "new_ats_score" (0-100).
-    5. Write an "analysis_report" as an ARRAY OF STRINGS (e.g., ["Added Python.", "Improved format."]).
+    5. Write "analysis_report" as a JSON array of strings.
 
     Keys required: "old_ats_score", "missing_keywords", "tailored_cv", "new_ats_score", "analysis_report"
     
