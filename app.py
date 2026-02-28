@@ -40,20 +40,26 @@ with tab1:
         uploaded_file = st.file_uploader("Upload Profile PDF", type=['pdf'])
         if st.button("Extract Real Data", type="primary") and uploaded_file:
             with st.spinner("Extracting real data from PDF..."):
-                raw_text = extract_pdf_text(uploaded_file)
-                st.session_state.base_cv_data = extract_base_cv(raw_text)
-                st.session_state.analysis_result = None # Reset analysis
-                st.success("✅ Real Profile Data Extracted Successfully!")
+                try:
+                    raw_text = extract_pdf_text(uploaded_file)
+                    st.session_state.base_cv_data = extract_base_cv(raw_text)
+                    st.session_state.analysis_result = None
+                    st.success("✅ Real Profile Data Extracted Successfully!")
+                except Exception as e:
+                    st.error(f"❌ Extraction failed: {str(e)}")
                     
     elif input_method == "🔗 Scrape via LinkedIn URL":
         linkedin_url = st.text_input("Enter LinkedIn Profile URL:")
         
         if st.button("Extract Data & Generate CV", type="primary") and linkedin_url:
             with st.spinner("Fetching data and generating your CV..."):
-                raw_text = scrape_url_text(linkedin_url)
-                st.session_state.base_cv_data = extract_base_cv(raw_text, is_url=True)
-                st.session_state.analysis_result = None
-                st.success("✅ Profile Data Extracted Successfully!")
+                try:
+                    raw_text = scrape_url_text(linkedin_url)
+                    st.session_state.base_cv_data = extract_base_cv(raw_text, is_url=True)
+                    st.session_state.analysis_result = None
+                    st.success("✅ Profile Data Extracted Successfully!")
+                except Exception as e:
+                    st.error(f"❌ Extraction failed: {str(e)}")
 
     # BASE PREVIEW & DOWNLOAD
     if st.session_state.base_cv_data:
@@ -78,7 +84,10 @@ with tab2:
         
         if st.button("Run ATS Analysis & Optimize", type="primary") and jd_input:
             with st.spinner("AI is analyzing and optimizing your CV..."):
-                st.session_state.analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
+                try:
+                    st.session_state.analysis_result = analyze_and_tailor_cv(st.session_state.base_cv_data, jd_input)
+                except Exception as e:
+                    st.error(f"❌ ATS Analysis failed: {str(e)}")
 
         if st.session_state.analysis_result:
             analysis = st.session_state.analysis_result

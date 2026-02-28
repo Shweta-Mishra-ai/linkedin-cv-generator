@@ -140,7 +140,7 @@ INSTRUCTIONS:
 6. "contact": Extract email, LinkedIn, phone, location as a single string.
 7. If a section genuinely does not exist in the text, set it to "".
 
-Text: {raw_text[:8000]}
+Text: {raw_text[:4000]}
 """
     response_text = generate_with_fallback(prompt, temp=0.3)
     return clean_and_parse_json(response_text, is_analysis=False)
