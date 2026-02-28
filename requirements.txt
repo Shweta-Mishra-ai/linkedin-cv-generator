@@ -3,3 +3,4 @@ PyPDF2
 requests
 beautifulsoup4
 google-generativeai
+pip install groq
