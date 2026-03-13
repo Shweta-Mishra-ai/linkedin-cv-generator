@@ -155,7 +155,7 @@ INSTRUCTIONS:
 5. "certificates": Generate certificates as a SINGLE HTML string.
 6. "contact": Format as "<p>Contact details extracted or placeholders</p>".
 
-Text: {raw_text[:4000]}
+Text: {raw_text[:12000]}
 """
     else:
         # For PDFs & Paste: extract all the real data closely
@@ -172,14 +172,14 @@ INSTRUCTIONS:
 6. "certificates": Format ALL certifications as a SINGLE HTML string using <p> tags.
 7. "contact": Extract email, LinkedIn, phone, location as a single string.
 
-Text: {raw_text[:4000]}
+Text: {raw_text[:12000]}
 """
     response_text = generate_with_fallback(prompt, temp=0.1)
     return clean_and_parse_json(response_text, is_analysis=False)
 
 def analyze_and_tailor_cv(base_cv_json, jd_text):
-    # Trim the CV JSON to avoid token limits on free API tiers
-    trimmed_cv = json.dumps(base_cv_json)[:4000]
+    # Trim the CV JSON to avoid token limits on free API tiers (Increased to 12000 for full resumes)
+    trimmed_cv = json.dumps(base_cv_json)[:12000]
     prompt = f"""
 Act as an Expert ATS System. Output ONLY a raw JSON object. No markdown, no explanation.
 Required output keys: "old_ats_score", "new_ats_score", "missing_keywords", "formatting_issues", "keyword_match_details", "hallucination_check", "tailored_cv", "analysis_report"
@@ -197,7 +197,7 @@ Required output keys: "old_ats_score", "new_ats_score", "missing_keywords", "for
 8. "analysis_report": JSON array of 3-5 strings explaining the strategic changes made to the CV targeting the JD.
 
 BASE CV: {trimmed_cv}
-JD: {jd_text[:3000]}
+JD: {jd_text[:8000]}
 """
     response_text = generate_with_fallback(prompt, temp=0.1)
     return clean_and_parse_json(response_text, is_analysis=True)
