@@ -30,14 +30,43 @@ def render_cv(template_name, data):
     projects     = to_html(data.get("projects", ""))
 
     # Clean up bold job-title tags for scoped CSS classes
-    for text in [experience, projects]:
-        text = text.replace("<p><b>", "<div class='job-title'>").replace("</b></p>", "</div>")
     experience = experience.replace("<p><b>", "<div class='job-title'>").replace("</b></p>", "</div>")
     projects   = projects.replace("<p><b>", "<div class='job-title'>").replace("</b></p>", "</div>")
 
     has_edu  = bool(education and len(education) > 5)
     has_cert = bool(certificates and len(certificates) > 5)
     has_proj = bool(projects and len(projects) > 5)
+
+    def format_contact(raw: str, separator="<br>") -> str:
+        """Splits a combined contact string into icon-prefixed separate lines."""
+        import re
+        # Split on pipe | or newline; strip whitespace and html tags
+        raw_clean = re.sub(r'<[^>]+>', '', raw)  # strip any existing HTML tags
+        parts = [p.strip() for p in re.split(r'[|\n,]', raw_clean) if p.strip()]
+        lines = []
+        for p in parts:
+            pl = p.lower()
+            if '@' in p or 'email' in pl:
+                icon = "✉️"
+            elif 'linkedin' in pl or 'lnkd' in pl:
+                icon = "🔗"
+            elif 'github' in pl:
+                icon = "💻"
+            elif any(c.isdigit() for c in p) and ('+' in p or p.replace(' ', '').replace('-','').replace('+','').isdigit()):
+                icon = "📞"
+            elif any(x in pl for x in ['http','www','portfolio','site']):
+                icon = "🌐"
+            elif any(x in pl for x in ['india','up','delhi','mumbai','city','remote','bengaluru','hyderabad','pune','noida','moradabad']):
+                icon = "📍"
+            elif 'twitter' in pl or 'x.com' in pl:
+                icon = "🐦"
+            else:
+                icon = "•"
+            lines.append(f"{icon} {p}")
+        return separator.join(lines) if lines else raw
+
+    contact_lines = format_contact(contact, separator="<br>")   # newline-separated for sidebars
+    contact_inline = format_contact(contact, separator=" &nbsp;|&nbsp; ")  # inline for header bars
 
     # =============================================
     # TEMPLATE 1 — Premium Two-Column (Navy & White)
@@ -67,7 +96,7 @@ def render_cv(template_name, data):
 </style></head><body>
 <div class="cv">
   <div class="lc">
-    <h3>Contact</h3><p>{contact.replace(' | ','<br>')}</p>
+    <h3>Contact</h3><p>{contact_lines}</p>
     <h3>Skills</h3><ul class="sk-list">{"".join([f'<li class="sk">{s}</li>' for s in skills])}</ul>
     {"<h3>Education</h3><div class='std'>"+education+"</div>" if has_edu else ""}
     {"<h3>Certifications</h3><div class='std'>"+certificates+"</div>" if has_cert else ""}
@@ -107,7 +136,7 @@ def render_cv(template_name, data):
   <div class="hdr">
     <div class="name">{name}</div>
     <div class="hl">{headline}</div>
-    <div class="ct">{contact.replace(' | ',' &bull; ')}</div>
+    <div class="ct">{contact_inline}</div>
   </div>
   <div class="grid">
     <div>
@@ -153,7 +182,7 @@ def render_cv(template_name, data):
     <div class="name">{name}</div>
     <div class="hl">{headline}</div>
     <div class="rib">✒️ Contact</div>
-    <div class="lt">{contact.replace(' | ','<br><br>')}</div>
+    <div class="lt">{contact_lines}</div>
     <div class="rib">🛠️ Skills</div>
     <div class="pw">{sk_pills}</div>
     {"<div class='rib'>🎓 Education</div><div class='lt'>"+education+"</div>" if has_edu else ""}
@@ -190,7 +219,7 @@ def render_cv(template_name, data):
 <div class="cv">
   <div class="lc">
     <div class="sh-left">Contact</div>
-    <p>{contact.replace(' | ','<br>')}</p>
+    <p>{contact_lines}</p>
     {"<div class='sh-left'>Education</div><p>"+education+"</p>" if has_edu else ""}
     <div class="sh-left">Skills</div>
     <ul>{"".join([f'<li class="sk">{s}</li>' for s in skills])}</ul>
@@ -232,7 +261,7 @@ def render_cv(template_name, data):
   <div class="hdr">
     <div class="name">{name}</div>
     <div class="hl">{headline}</div>
-    <div class="ct">{contact.replace(' | ',' · ')}</div>
+    <div class="ct">{contact_inline}</div>
   </div>
   <div class="body">
     <div class="sh">Skills & Expertise</div>
@@ -270,7 +299,7 @@ hr{{border:none;border-top:2px solid #111;margin:14px 0;}}
 <div class="cv">
   <div class="name">{name}</div>
   <div class="hl">{headline}</div>
-  <div class="ct">{contact.replace(' | ',' · ')}</div>
+  <div class="ct">{contact_inline}</div>
   <hr>
   <div class="sh">Core Competencies</div>
   <ul style="padding:0;margin-bottom:10px;">{"".join([f'<li class="sk">{s}</li>' for s in skills])}</ul>
@@ -309,7 +338,7 @@ hr{{border:none;border-top:2px solid #111;margin:14px 0;}}
     <div class="name">{name}</div>
     <div class="hl">{headline}</div>
     <div class="lsh">Contact</div>
-    <p>{contact.replace(' | ','<br>')}</p>
+    <p>{contact_lines}</p>
     <div class="lsh">Skills</div>
     <div>{sk_pills}</div>
     {"<div class='lsh'>Education</div><div class='st'>"+education+"</div>" if has_edu else ""}
