@@ -101,6 +101,11 @@ def clean_and_parse_json(response_text, is_analysis=False):
             if "keyword_match_details" not in parsed_data:
                 parsed_data["keyword_match_details"] = "Keywords analyzed."
                 
+            # Normalize projects if present in tailored_cv
+            tailored_inner = parsed_data.get("tailored_cv", {})
+            if isinstance(tailored_inner, dict) and "projects" in tailored_inner:
+                tailored_inner["projects"] = _convert_to_html(tailored_inner.get("projects", ""))
+                
             # Also normalize tailored_cv if present
             tailored = parsed_data.get("tailored_cv", {})
             if isinstance(tailored, dict):
@@ -117,8 +122,8 @@ def clean_and_parse_json(response_text, is_analysis=False):
             elif not parsed_data.get("skills"):
                 parsed_data["skills"] = ""
 
-            # Normalize experience/education/certificates to HTML strings
-            for key in ["experience", "education", "certificates"]:
+            # Normalize experience/education/certificates/projects to HTML strings
+            for key in ["experience", "education", "certificates", "projects"]:
                 parsed_data[key] = _convert_to_html(parsed_data.get(key, ""))
 
             return parsed_data
@@ -139,38 +144,37 @@ def clean_and_parse_json(response_text, is_analysis=False):
 
 def extract_base_cv(raw_text, is_url=False):
     if is_url:
-        # For URLs: LinkedIn blocks most data, so we use AI to generate professional content
         prompt = f"""
 You are an Expert Resume Architect. Output ONLY a raw JSON object. No markdown, no explanation.
-Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
+Required keys: "name", "headline", "contact", "skills", "experience", "projects", "education", "certificates"
 
 The text is a limited scrape from a LinkedIn URL or Portfolio.
-Your job: BUILD a complete professional CV based heavily on whatever is in the text.
 
 INSTRUCTIONS:
 1. Extract the name and headline.
-2. "skills": Generate relevant skills as a comma-separated string based on the text.
-3. "experience": Generate detailed, realistic job experiences as a SINGLE HTML string using <ul><li> tags. DO NOT invent false past companies if they are not listed. Keep it general if needed.
-4. "education": Generate education as a SINGLE HTML string.
-5. "certificates": Generate certificates as a SINGLE HTML string.
-6. "contact": Format as "<p>Contact details extracted or placeholders</p>".
+2. "skills": Relevant skills as a comma-separated string.
+3. "experience": Work experiences as a SINGLE HTML string using <p><b>Title at Company (Dates)</b></p><ul><li> tags. Keep realistic, DO NOT INVENT companies.
+4. "projects": Any notable projects, personal projects, or academic projects found as a SINGLE HTML string using <p><b>Project Name</b></p><ul><li> tags. Set to "" if none found.
+5. "education": Education details as a SINGLE HTML string using <p> tags.
+6. "certificates": Certifications as a SINGLE HTML string using <p> tags.
+7. "contact": Contact info as a single string (email, phone, LinkedIn, location).
 
 Text: {raw_text[:12000]}
 """
     else:
-        # For PDFs & Paste: extract all the real data closely
         prompt = f"""
 You are an expert resume parser. Output ONLY a raw JSON object. No markdown, no explanation.
-Required keys: "name", "headline", "contact", "skills", "experience", "education", "certificates"
+Required keys: "name", "headline", "contact", "skills", "experience", "projects", "education", "certificates"
 
 INSTRUCTIONS:
-1. Extract all available data from the text. 
-2. STRICT RULE: DO NOT INVENT ANYTHING. If a section genuinely does not exist in the text, set it to "".
+1. Extract ALL available data from the text.
+2. STRICT RULE: DO NOT INVENT ANYTHING. If a section genuinely does not exist, set it to "".
 3. "skills": Extract all skills as a comma-separated string.
-4. "experience": Format ALL work experience as a SINGLE HTML string using <p><b>Title at Company (Dates)</b></p><ul><li>Achievement</li></ul> structure.
-5. "education": Format ALL education as a SINGLE HTML string using <p> tags.
-6. "certificates": Format ALL certifications as a SINGLE HTML string using <p> tags.
-7. "contact": Extract email, LinkedIn, phone, location as a single string.
+4. "experience": Format ALL work experience as a SINGLE HTML string: <p><b>Title at Company (Dates)</b></p><ul><li>Achievement</li></ul>
+5. "projects": Format ALL projects (personal, academic, or work) as a SINGLE HTML string: <p><b>Project Name | Tech Stack</b></p><ul><li>Description</li></ul>. Set to "" if none.
+6. "education": Format ALL education as a SINGLE HTML string using <p> tags.
+7. "certificates": Format ALL certifications as a SINGLE HTML string using <p> tags.
+8. "contact": Extract email, LinkedIn, phone, location as a single pipe-separated string.
 
 Text: {raw_text[:12000]}
 """
@@ -190,10 +194,10 @@ Required output keys: "old_ats_score", "new_ats_score", "missing_keywords", "for
 4. "formatting_issues": JSON array of 1-3 issues identified in base CV structure (e.g., "Missing explicit Skills section", "Dates format unreadable").
 5. "keyword_match_details": A short string explaining exactly why the score is what it is based on JD keywords.
 6. "hallucination_check": A string declaring "Safe" if you successfully avoided adding fake experience/tenure, or explaining compromises made.
-7. "tailored_cv": JSON object with keys: name, headline, contact, skills, experience, education, certificates.
-   - STRICT RULE (ANTI-HALLUCINATION): You are FORBIDDEN from adding fake years of experience, fake job titles, or fake degrees.
-   - You may ONLY rewrite existing bullet points in the "experience" section to better highlight JD keywords that the user demonstrably has.
-   - Format experience as a single HTML string with <p><b>Title</b></p><ul><li> tags.
+7. "tailored_cv": JSON object with keys: name, headline, contact, skills, experience, projects, education, certificates.
+   - STRICT RULE (ANTI-HALLUCINATION): You are FORBIDDEN from adding fake years of experience, fake job titles, fake degrees, or fake projects.
+   - You may ONLY rewrite existing bullet points in "experience" and "projects" to better highlight JD keywords that the user demonstrably has.
+   - Format experience and projects as single HTML strings with <p><b>Title</b></p><ul><li> tags.
 8. "analysis_report": JSON array of 3-5 strings explaining the strategic changes made to the CV targeting the JD.
 
 BASE CV: {trimmed_cv}
