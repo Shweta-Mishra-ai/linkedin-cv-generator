@@ -1,14 +1,3 @@
----
-title: CareerForge_AI
-emoji: 🚀
-colorFrom: blue
-colorTo: sky
-sdk: streamlit
-sdk_version: 1.31.0
-app_file: streamlit_app.py
-pinned: true
-license: mit
----
 
 <div align="center">
   <h1>🚀 AI-Powered LinkedIn to CV Generator</h1>
