@@ -15,6 +15,7 @@
     </a>
   </p>
 
+  <h3><a href="https://linkedin-cv-generator-d4v5vnoshm4rzvnchamfqj.streamlit.app/">🌐 Click Here for Live Demo</a></h3>
   <h3><a href="https://www.loom.com/share/e5b1c8ffb00b447c90a910b9b27efe70">📺 Watch the Demo Video</a></h3>
 </div>
 
