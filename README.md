@@ -1,5 +1,5 @@
 ---
-title: CareerForge
+title: CareerForge_AI
 emoji: 🚀
 colorFrom: blue
 colorTo: sky
@@ -15,14 +15,14 @@ license: mit
   <p><strong>A smart, resilient, and beautifully designed web application built with Streamlit and Google's Gemini AI.</strong></p>
 
   <p>
-    <a href="https://github.com/Shweta-Mishra-ai/careerforge/stargazers">
-      <img src="https://img.shields.io/github/stars/Shweta-Mishra-ai/careerforge?style=for-the-badge&logo=github&color=gold" alt="GitHub stars">
+    <a href="https://github.com/Shweta-Mishra-ai/CareerForge_AI/stargazers">
+      <img src="https://img.shields.io/github/stars/Shweta-Mishra-ai/CareerForge_AI?style=for-the-badge&logo=github&color=gold" alt="GitHub stars">
     </a>
-    <a href="https://github.com/Shweta-Mishra-ai/careerforge/network/members">
-      <img src="https://img.shields.io/github/forks/Shweta-Mishra-ai/careerforge?style=for-the-badge&logo=github&color=blue" alt="GitHub forks">
+    <a href="https://github.com/Shweta-Mishra-ai/CareerForge_AI/network/members">
+      <img src="https://img.shields.io/github/forks/Shweta-Mishra-ai/CareerForge_AI?style=for-the-badge&logo=github&color=blue" alt="GitHub forks">
     </a>
-    <a href="https://github.com/Shweta-Mishra-ai/careerforge/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/Shweta-Mishra-ai/careerforge?style=for-the-badge&logo=github&color=green" alt="License">
+    <a href="https://github.com/Shweta-Mishra-ai/CareerForge_AI/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/Shweta-Mishra-ai/CareerForge_AI?style=for-the-badge&logo=github&color=green" alt="License">
     </a>
   </p>
 
@@ -33,7 +33,7 @@ license: mit
 
 ## 🌟 Overview
 
-**CareerForge** extracts unstructured data from LinkedIn profiles and converts it into a professional, print-ready HTML CV. It is designed to be resilient, bypass anti-bot mechanisms, and leverage Google's Gemini AI for perfect data structuring.
+**CareerForge_AI** extracts unstructured data from LinkedIn profiles and converts it into a professional, print-ready HTML CV. It is designed to be resilient, bypass anti-bot mechanisms, and leverage Google's Gemini AI for perfect data structuring.
 
 ## ✨ Key Features
 
@@ -54,8 +54,8 @@ license: mit
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Shweta-Mishra-ai/careerforge.git
-   cd careerforge
+   git clone https://github.com/Shweta-Mishra-ai/CareerForge_AI.git
+   cd CareerForge_AI
    ```
 
 2. **Install dependencies:**
@@ -87,7 +87,7 @@ Directly scraping LinkedIn URLs from a cloud server often results in immediate I
 3. Click **🚀 Analyze & Generate**.
 4. **Download your CV** as a beautiful HTML file or save it directly as a PDF (Ctrl+P).
 
-## 💎 Why CareerForge?
+## 💎 Why CareerForge_AI?
 
 - **Anti-Ban Resilience:** Designed to handle LinkedIn's 403 and 999 errors proactively.
 - **Premium Aesthetics:** Dark-mode Streamlit UI paired with high-end, clean CV templates.
@@ -99,9 +99,9 @@ Directly scraping LinkedIn URLs from a cloud server often results in immediate I
 
 If you find this tool helpful, please consider supporting its development:
 
-- ⭐ **Star this repository on [GitHub](https://github.com/Shweta-Mishra-ai/careerforge)** to show your support!
+- ⭐ **Star this repository on [GitHub](https://github.com/Shweta-Mishra-ai/CareerForge_AI)** to show your support!
 - 🎁 **Gift/Sponsor:** If you'd like to support my work further, feel free to reach out or contribute!
-- 📣 **Share:** Tell your friends and colleagues about CareerForge.
+- 📣 **Share:** Tell your friends and colleagues about CareerForge_AI.
 
 ## 📄 License
 
